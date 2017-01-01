@@ -1,6 +1,22 @@
+organization := "com.github.rusabakumov"
 name := "scala-telegram-bot"
 version := "1.0"
 scalaVersion := "2.12.1"
+
+scalacOptions ++= Seq(
+  "-unchecked",
+  "-deprecation",
+  "-feature",
+  "-language:existentials",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-language:postfixOps",
+  "-Ywarn-dead-code",
+  "-Ywarn-infer-any",
+  "-Ywarn-unused-import",
+  "-Xfatal-warnings",
+  "-Xlint"
+)
 
 lazy val http4sVersion = "0.15.1"
 

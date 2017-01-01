@@ -1,13 +1,13 @@
-package com.rusabakumov.bots.telegram.connector
+package com.github.rusabakumov.bots.telegram.connector
 
 import argonaut.Argonaut._
 import argonaut.Json
-import com.rusabakumov.bots.telegram.TelegramMessageHandler
-import com.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
-import com.rusabakumov.util.Logging
+import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
+import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
+import com.github.rusabakumov.util.Logging
 import java.io.File
 import org.http4s.Status.ResponseClass.Successful
-import org.http4s.argonaut.ArgonautInstances
+import org.http4s.argonaut._
 import org.http4s.client._
 import org.http4s.client.blaze.PooledHttp1Client
 import org.http4s.dsl._
@@ -15,12 +15,11 @@ import org.http4s.multipart.{Multipart, Part}
 import org.http4s.{Request, Uri, UrlForm}
 import scala.concurrent.duration.Duration
 import scalaz.concurrent.Task
-import scalaz.{-\/, \/, \/-}
-import org.http4s.argonaut._
+import scalaz.{-\/, \/-}
 
 class TelegramConnector(botCredentials: String) extends Logging {
 
-  import com.rusabakumov.bots.telegram.model.TelegramModelCodecs._
+  import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 
   implicit private val apiClient = PooledHttp1Client()
 

@@ -1,4 +1,4 @@
-package com.rusabakumov.util
+package com.github.rusabakumov.util
 
 import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import org.slf4j.LoggerFactory

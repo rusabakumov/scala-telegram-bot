@@ -1,6 +1,6 @@
-package com.rusabakumov.bots.telegram
+package com.github.rusabakumov.bots.telegram
 
-import com.rusabakumov.bots.telegram.model.{Message, MessageToSend}
+import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
 
 trait TelegramBotCommand {
   def names: List[String]

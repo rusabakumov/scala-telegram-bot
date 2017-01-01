@@ -1,8 +1,8 @@
-package com.rusabakumov.bots.telegram
+package com.github.rusabakumov.bots.telegram
 
-import com.rusabakumov.bots.telegram.connector.TelegramConnector
-import com.rusabakumov.bots.telegram.model.{Message, MessageToSend}
-import com.rusabakumov.util.Logging
+import com.github.rusabakumov.bots.telegram.connector.TelegramConnector
+import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
+import com.github.rusabakumov.util.Logging
 import scala.collection.mutable
 
 trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging {
@@ -30,9 +30,8 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
       val reply = MessageToSend(chatId, "Sorry, but I can only talk in authorized chats. Ask my creator to give you access")
       telegramConnector.sendMessage(reply)
     } else {
-      /** At first we checking whether any command is present - in this case we will execute it
-        * regardless of the chat state
-        */
+      // At first we checking whether any command is present - in this case we will execute it
+      // regardless of the chat state
       val (messagesToSend, commandExecutionOption: Option[CommandExecution]) = extractCommand(message) match {
         case Some(commandParams) => handleNewCommand(commandParams, message)
         case None => chatCommandStates.get(chatId) match {

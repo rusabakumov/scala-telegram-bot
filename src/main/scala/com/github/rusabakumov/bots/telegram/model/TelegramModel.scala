@@ -1,4 +1,4 @@
-package com.rusabakumov.bots.telegram.model
+package com.github.rusabakumov.bots.telegram.model
 
 import argonaut.Argonaut._
 import argonaut.{CodecJson, EncodeJson}

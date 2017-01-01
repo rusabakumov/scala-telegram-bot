@@ -1,17 +1,16 @@
-package com.rusabakumov.bots.telegram.connector
+package com.github.rusabakumov.bots.telegram.connector
 
 import argonaut._
-import com.rusabakumov.bots.telegram.TelegramMessageHandler
-import com.rusabakumov.bots.telegram.model.TelegramUpdate
+import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
+import com.github.rusabakumov.bots.telegram.model.TelegramUpdate
 import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import java.nio.file.Paths
 import org.http4s._
-import org.http4s.argonaut.ArgonautInstances
+import org.http4s.argonaut._
 import org.http4s.dsl._
 import org.http4s.server.SSLSupport.StoreInfo
 import org.http4s.server.blaze._
 import org.slf4j.LoggerFactory
-import org.http4s.argonaut._
 
 /** Should be used only by TelegramConnector */
 class MessageReceiverService(
@@ -21,7 +20,7 @@ class MessageReceiverService(
     port: Int,
     messageHandler: TelegramMessageHandler
   ) {
-  import com.rusabakumov.bots.telegram.model.TelegramModelCodecs._
+  import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 
   private val sl4jLogger = LoggerFactory.getLogger(this.getClass)
   private val log = ScalaLogger(sl4jLogger)

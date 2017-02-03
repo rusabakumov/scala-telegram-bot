@@ -7,15 +7,15 @@ import scala.collection.mutable
 
 trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging {
 
-  val telegramConnector : TelegramConnector
-  val commands          : List[TelegramBotCommand]
-  val authEnabled       : Boolean
-  val authorizedChats   : List[Int]
-  val botName           : String
+  def telegramConnector : TelegramConnector
+  def commands          : List[TelegramBotCommand]
+  def authEnabled       : Boolean
+  def authorizedChats   : List[Long]
+  def botName           : String
 
   case class CommandExecution(command: TelegramBotCommand, state: Any)
 
-  private val chatCommandStates = new mutable.HashMap[Int, CommandExecution]
+  private val chatCommandStates = new mutable.HashMap[Long, CommandExecution]
 
   private lazy val commandMap: Map[String, TelegramBotCommand] = commands.flatMap { command =>
     constructCommandStrings(command, botName) map { commandStr =>
@@ -32,6 +32,7 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
     } else {
       // At first we checking whether any command is present - in this case we will execute it
       // regardless of the chat state
+      log.debug(s"Got message from chat $chatId: $message")
       val (messagesToSend, commandExecutionOption: Option[CommandExecution]) = extractCommand(message) match {
         case Some(commandParams) => handleNewCommand(commandParams, message)
         case None => chatCommandStates.get(chatId) match {

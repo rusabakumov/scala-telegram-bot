@@ -4,19 +4,19 @@ import argonaut.Argonaut._
 import argonaut.{CodecJson, EncodeJson}
 
 case class MessageEntity(entityType: String, offset: Int, length: Int)
-case class Chat(id: Int, chatType: String, title: Option[String], username: Option[String])
+case class Chat(id: Long, chatType: String, title: Option[String], username: Option[String])
 
 case class Message(
-    messageId: Int,
+    messageId: Long,
     text: Option[String],
     chat: Chat,
     entities: Option[List[MessageEntity]]
 )
 
 case class MessageToSend(
-    chatId: Int,
+    chatId: Long,
     text: String,
-    replyToMessageId: Option[Int] = None,
+    replyToMessageId: Option[Long] = None,
     parseMode: Option[String] = None,
     replyMarkup: Option[ReplyMarkup] = None)
 
@@ -35,7 +35,7 @@ final case class ReplyKeyboardMarkup(
 
 case class KeyboardButton(text: String, requestContact: Boolean = false, requestLocaton: Boolean = false)
 
-case class TelegramUpdate(updateId: Int, message: Option[Message])
+case class TelegramUpdate(updateId: Long, message: Option[Message])
 
 object TelegramModelCodecs {
 

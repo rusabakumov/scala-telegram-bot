@@ -68,7 +68,7 @@ class TelegramConnector(botCredentials: String) extends Logging {
   /** This method is blocking for now! */
   def startBlockingPollingReceive(interval: Duration, messageHandler: TelegramMessageHandler) = {
     clearWebhook()
-    var lastUpdateId = 0
+    var lastUpdateId = 0L
     for (i <- 1 to 1000) {
       lastUpdateId = getUpdates(lastUpdateId + 1, messageHandler)
       Thread.sleep(interval.toMillis)
@@ -104,7 +104,7 @@ class TelegramConnector(botCredentials: String) extends Logging {
     receiver = None
   }
 
-  private def getUpdates(offset: Int, messageHandler: TelegramMessageHandler): Int = {
+  private def getUpdates(offset: Long, messageHandler: TelegramMessageHandler): Long = {
     val methodName = "getUpdates"
 
     val request = POST(baseUri / methodName, UrlForm("offset" -> offset.toString))
@@ -121,7 +121,7 @@ class TelegramConnector(botCredentials: String) extends Logging {
 
         updates.map(_.updateId) match {
           case Nil  => 0
-          case list => list.max(Ordering[Int])
+          case list => list.max(Ordering[Long])
         }
     }
   }

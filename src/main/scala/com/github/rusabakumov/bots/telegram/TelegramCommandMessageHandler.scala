@@ -1,7 +1,7 @@
 package com.github.rusabakumov.bots.telegram
 
 import com.github.rusabakumov.bots.telegram.connector.TelegramConnector
-import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
+import com.github.rusabakumov.bots.telegram.model._
 import com.github.rusabakumov.util.Logging
 import scala.collection.mutable
 
@@ -12,6 +12,10 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
   def authEnabled       : Boolean
   def authorizedChats   : List[Long]
   def botName           : String
+
+  def defaultKeyboard   : Option[ReplyKeyboardMarkup]
+  t 
+  private lazy val InitialReplyMarkup = defaultKeyboard.getOrElse(ReplyKeyboardRemoveMarkup(selective = false))
 
   case class CommandExecution(command: TelegramBotCommand, state: Any)
 
@@ -27,7 +31,10 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
     val chatId = message.chat.id
     if (authEnabled && !authorizedChats.contains(chatId)) {
       log.info(s"Got request from unauthorized chat $chatId")
-      val reply = MessageToSend(chatId, "Sorry, but I can only talk in authorized chats. Ask my creator to give you access")
+      val reply = MessageToSend(
+        chatId,
+        "Sorry, but I can only talk in authorized chats. Ask my creator to give you access"
+      )
       telegramConnector.sendMessage(reply)
     } else {
       // At first we checking whether any command is present - in this case we will execute it
@@ -47,12 +54,22 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
             (messagesToSend, commandExecutionOption)
 
           case None =>
-            val reply = MessageToSend(message.chat.id, "I understand predefined commands only!")
+            val reply = MessageToSend(
+              message.chat.id,
+              "I understand predefined commands only!",
+              replyMarkup = defaultKeyboard
+            )
             (List(reply), None)
         }
       }
 
-      messagesToSend.foreach(telegramConnector.sendMessage)
+      val checkedMessagesToSend = if (commandExecutionOption.isDefined) {
+        fixLastMessageMarkup(messagesToSend)
+      } else {
+        messagesToSend
+      }
+
+      checkedMessagesToSend.foreach(telegramConnector.sendMessage)
 
       //Updating or clearing state
       commandExecutionOption match {
@@ -60,6 +77,15 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
         case None => chatCommandStates.remove(chatId)
       }
     }
+  }
+
+  /**
+    * After command is finished, we should reset bot to "clean" state - show default vk if it's defined or clean it
+    */
+  private def fixLastMessageMarkup(messagesToSend: List[MessageToSend]): List[MessageToSend] = messagesToSend match {
+    case msg :: Nil => msg.copy(replyMarkup = Some(InitialReplyMarkup)) :: Nil
+    case head :: tail => head :: fixLastMessageMarkup(tail)
+    case Nil => Nil
   }
 
   case class CommandParams(nameString: String, params: String)

@@ -1,6 +1,6 @@
 organization := "com.github.rusabakumov"
 name := "scala-telegram-bot"
-version := "1.2"
+version := "1.3"
 scalaVersion := "2.12.1"
 
 scalacOptions ++= Seq(

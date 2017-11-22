@@ -14,7 +14,7 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
   def botName           : String
 
   def defaultKeyboard   : Option[ReplyKeyboardMarkup]
-  t 
+
   private lazy val InitialReplyMarkup = defaultKeyboard.getOrElse(ReplyKeyboardRemoveMarkup(selective = false))
 
   case class CommandExecution(command: TelegramBotCommand, state: Any)

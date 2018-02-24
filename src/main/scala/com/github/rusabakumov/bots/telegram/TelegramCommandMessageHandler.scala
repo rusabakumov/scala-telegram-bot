@@ -63,13 +63,13 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
         }
       }
 
-      val checkedMessagesToSend = if (commandExecutionOption.isDefined) {
-        fixLastMessageMarkup(messagesToSend)
+      val messagesWithCheckedKeyboard = if (commandExecutionOption.isEmpty) {
+        setDefaultKeyboard(messagesToSend)
       } else {
         messagesToSend
       }
 
-      checkedMessagesToSend.foreach(telegramConnector.sendMessage)
+      messagesWithCheckedKeyboard.foreach(telegramConnector.sendMessage)
 
       //Updating or clearing state
       commandExecutionOption match {
@@ -82,9 +82,9 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
   /**
     * After command is finished, we should reset bot to "clean" state - show default vk if it's defined or clean it
     */
-  private def fixLastMessageMarkup(messagesToSend: List[MessageToSend]): List[MessageToSend] = messagesToSend match {
+  private def setDefaultKeyboard(messagesToSend: List[MessageToSend]): List[MessageToSend] = messagesToSend match {
     case msg :: Nil => msg.copy(replyMarkup = Some(InitialReplyMarkup)) :: Nil
-    case head :: tail => head :: fixLastMessageMarkup(tail)
+    case head :: tail => head :: setDefaultKeyboard(tail)
     case Nil => Nil
   }
 

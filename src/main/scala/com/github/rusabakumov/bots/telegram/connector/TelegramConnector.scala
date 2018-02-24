@@ -1,44 +1,44 @@
 package com.github.rusabakumov.bots.telegram.connector
 
 import argonaut.Argonaut._
-import argonaut.Json
+import argonaut._
+import cats.effect.IO
 import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
 import com.github.rusabakumov.util.Logging
 import java.io.File
-import org.http4s.Status.ResponseClass.Successful
+import org.http4s.Status.Successful
+import org.http4s._
 import org.http4s.argonaut._
 import org.http4s.client._
-import org.http4s.client.blaze.PooledHttp1Client
-import org.http4s.dsl._
-import org.http4s.multipart.{Multipart, Part}
-import org.http4s.{Request, Uri, UrlForm}
+import org.http4s.client.blaze.Http1Client
+import org.http4s.client.dsl.Http4sClientDsl
+import org.http4s.dsl.io._
+import org.http4s.multipart._
 import scala.concurrent.duration.Duration
-import scalaz.concurrent.Task
-import scalaz.{-\/, \/-}
 
-class TelegramConnector(botCredentials: String) extends Logging {
+class TelegramConnector(botCredentials: String) extends Http4sClientDsl[IO] with Logging {
 
   import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 
-  implicit private val apiClient = PooledHttp1Client()
+  implicit private val apiClient = Http1Client[IO]().unsafeRunSync()
 
-  private val baseUri = Uri.fromString("https://api.telegram.org/" + botCredentials) match {
-    case -\/(_) =>
+  private val baseUri: Uri = Uri.fromString("https://api.telegram.org/" + botCredentials) match {
+    case Left(_) =>
       throw new IllegalArgumentException("Cannot construct telegram API url for configured bot credentials")
-    case \/-(uri) =>
+    case Right(uri) =>
       uri
   }
 
   private var receiver: Option[MessageReceiverService] = None
 
-  private def fetchResult(request: Task[Request])(implicit client: Client): Either[String, Json] = {
+  private def fetchResult(request: IO[Request[IO]])(implicit client: Client[IO]): Either[String, Json] = {
     val bodyTask = client.fetch(request) {
       case Successful(entity) => entity.as[Json]
       case BadRequest(entity) => entity.as[Json]
-      case _ => Task.now(jNull)
+      case _ => IO { jNull }
     }
-    val body = bodyTask.run
+    val body = bodyTask.unsafeRunSync()
 
     body.fieldOrFalse("ok") match {
       case j: Json if j.isFalse =>
@@ -106,7 +106,6 @@ class TelegramConnector(botCredentials: String) extends Logging {
 
   private def getUpdates(offset: Long, messageHandler: TelegramMessageHandler): Long = {
     val methodName = "getUpdates"
-
     val request = POST(baseUri / methodName, UrlForm("offset" -> offset.toString))
 
     fetchResult(request).flatMap(_.as[List[TelegramUpdate]].result.left.map(_._1)) match {
@@ -129,13 +128,15 @@ class TelegramConnector(botCredentials: String) extends Logging {
   private def setWebhook(hookUrl: String, certificate: Option[File]) = {
     val methodName = "setWebhook"
 
-    val request = certificate match {
+    val request: IO[Request[IO]] = certificate match {
       case Some(file) =>
-        val urlPart = Part.formData("url", hookUrl)
-        val filePart = Part.fileData("certificate", file)
-        val multipart = Multipart(Vector(urlPart, filePart))
+        val urlPart = Part.formData[IO]("url", hookUrl)
+        val filePart = Part.fileData[IO]("certificate", file)
+        val multipart = Multipart[IO](Vector(urlPart, filePart))
 
-        POST(baseUri / methodName, multipart).map(_.replaceAllHeaders(multipart.headers))
+        val uri = baseUri / methodName
+
+        POST(uri, multipart).map(_.replaceAllHeaders(multipart.headers))
       case None =>
         POST(baseUri / methodName, UrlForm("url" -> hookUrl))
     }

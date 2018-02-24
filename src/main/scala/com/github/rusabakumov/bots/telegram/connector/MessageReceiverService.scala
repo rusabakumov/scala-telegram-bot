@@ -5,12 +5,14 @@ import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.TelegramUpdate
 import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import java.nio.file.Paths
-import org.http4s._
 import org.http4s.argonaut._
-import org.http4s.dsl._
-import org.http4s.server.SSLSupport.StoreInfo
 import org.http4s.server.blaze._
 import org.slf4j.LoggerFactory
+import cats.effect._
+import org.http4s._
+import org.http4s.dsl.io._
+import org.http4s.server.SSLKeyStoreSupport.StoreInfo
+import org.http4s.server.Server
 
 /** Should be used only by TelegramConnector */
 class MessageReceiverService(
@@ -19,13 +21,13 @@ class MessageReceiverService(
     password: String,
     port: Int,
     messageHandler: TelegramMessageHandler
-  ) {
+) {
   import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 
   private val sl4jLogger = LoggerFactory.getLogger(this.getClass)
   private val log = ScalaLogger(sl4jLogger)
 
-  private val service = HttpService {
+  private val service = HttpService[IO] {
     case req @ POST -> Root / "receiveUpdate" / `token` =>
       req.decode[Json] { json =>
         json.as[TelegramUpdate].result match {
@@ -40,11 +42,12 @@ class MessageReceiverService(
 
   private val keypath = Paths.get(keystorePath).toAbsolutePath.toString
 
-  val server = BlazeBuilder.
-    withSSL(StoreInfo(keypath, password), keyManagerPassword = password).
-    mountService(service).
-    bindHttp(port, "0.0.0.0").
-    run
+  val server: Server[IO] = BlazeBuilder[IO]
+    .withSSL(StoreInfo(keypath, password), keyManagerPassword = password)
+    .mountService(service)
+    .bindHttp(port, "0.0.0.0")
+    .start
+    .unsafeRunSync()
 
   def shutdown(): Unit = {
     server.shutdownNow()

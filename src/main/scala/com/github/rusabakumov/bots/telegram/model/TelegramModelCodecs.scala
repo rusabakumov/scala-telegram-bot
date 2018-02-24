@@ -3,7 +3,6 @@ package com.github.rusabakumov.bots.telegram.model
 import argonaut.Argonaut.{casecodec1, casecodec3, casecodec4, jEmptyObject}
 import argonaut.{CodecJson, EncodeJson}
 import argonaut._, Argonaut._
-import scalaz._, Scalaz._
 
 object TelegramModelCodecs {
 
@@ -76,23 +75,23 @@ object TelegramModelCodecs {
     TelegramUser.apply, TelegramUser.unapply
   )("id")
 
-  implicit def inlineQueryResultCodecJson: EncodeJson[InlineQueryResult] = EncodeJson { (r: InlineQueryResult) =>
-    r match {
-      case c: InlineQueryResultContact => inlineQueryResultContactCodecJson(c)
-    }
-  }
+//  implicit def inlineQueryResultCodecJson: EncodeJson[InlineQueryResult] = EncodeJson { (r: InlineQueryResult) =>
+//    r match {
+//      case c: InlineQueryResultContact => inlineQueryResultContactCodecJson(c)
+//    }
+//  }
 
-  implicit def inlineQueryResultContactCodecJson: EncodeJson[InlineQueryResultContact] = EncodeJson { (c: InlineQueryResultContact) =>
-    ("id" := c.id) ->:
-      ("type" := c.resultType) ->:
-      ("phone_number" := c.phoneNumber) ->:
-      ("first_name" := c.firstName) ->:
-      jEmptyObject
-  }
-
-  implicit def answerInlineQueryCodecJson: CodecJson[AnswerInlineQuery] = casecodec3(
-    AnswerInlineQuery.apply, AnswerInlineQuery.unapply
-  )("inline_query_id", "results", "is_personal")
+//  implicit def inlineQueryResultContactCodecJson: EncodeJson[InlineQueryResultContact] = EncodeJson { (c: InlineQueryResultContact) =>
+//    ("id" := c.id) ->:
+//      ("type" := c.resultType) ->:
+//      ("phone_number" := c.phoneNumber) ->:
+//      ("first_name" := c.firstName) ->:
+//      jEmptyObject
+//  }
+//
+//  implicit def answerInlineQueryCodecJson: CodecJson[AnswerInlineQuery] = casecodec3(
+//    AnswerInlineQuery.apply, AnswerInlineQuery.unapply
+//  )("inline_query_id", "results", "is_personal")
 
   implicit def inputMessageContentCodecJson: EncodeJson[InputMessageContent] = EncodeJson { (r: InputMessageContent) =>
     r match {

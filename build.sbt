@@ -1,7 +1,10 @@
 organization := "com.github.rusabakumov"
 name := "scala-telegram-bot"
-version := "1.3"
+version := "1.5"
 scalaVersion := "2.12.1"
+
+bintrayRepository := "rusabakumov-bintray"
+bintrayOmitLicense := true
 
 scalacOptions ++= Seq(
   "-unchecked",
@@ -18,7 +21,7 @@ scalacOptions ++= Seq(
   "-Xlint"
 )
 
-lazy val http4sVersion = "0.15.1"
+lazy val http4sVersion = "0.18.0"
 
 // Only necessary for SNAPSHOT releases
 resolvers += Resolver.sonatypeRepo("snapshots")

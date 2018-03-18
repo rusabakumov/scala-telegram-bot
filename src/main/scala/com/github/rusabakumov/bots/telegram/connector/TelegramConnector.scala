@@ -1,48 +1,53 @@
 package com.github.rusabakumov.bots.telegram.connector
 
 import argonaut.Argonaut._
-import argonaut.Json
+import argonaut._
+import cats.effect.IO
 import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
 import com.github.rusabakumov.util.Logging
 import java.io.File
-import org.http4s.Status.ResponseClass.Successful
+import org.http4s.Status.Successful
+import org.http4s._
 import org.http4s.argonaut._
 import org.http4s.client._
-import org.http4s.client.blaze.PooledHttp1Client
-import org.http4s.dsl._
-import org.http4s.multipart.{Multipart, Part}
-import org.http4s.{Request, Uri, UrlForm}
+import org.http4s.client.blaze.Http1Client
+import org.http4s.client.dsl.Http4sClientDsl
+import org.http4s.dsl.io._
+import org.http4s.multipart._
 import scala.concurrent.duration.Duration
-import scalaz.concurrent.Task
-import scalaz.{-\/, \/-}
+import scala.concurrent.ExecutionContext.Implicits.global
 
-class TelegramConnector(botCredentials: String) extends Logging {
+class TelegramConnector(botCredentials: String)
+    extends Http4sClientDsl[IO]
+    with Logging {
 
   import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 
-  implicit private val apiClient = PooledHttp1Client()
+  implicit private val apiClient = Http1Client[IO]().unsafeRunSync()
 
-  private val baseUri = Uri.fromString("https://api.telegram.org/" + botCredentials) match {
-    case -\/(_) =>
-      throw new IllegalArgumentException("Cannot construct telegram API url for configured bot credentials")
-    case \/-(uri) =>
-      uri
-  }
+  private val baseUri: Uri =
+    Uri.fromString("https://api.telegram.org/" + botCredentials) match {
+      case Left(_) =>
+        throw new IllegalArgumentException(
+          "Cannot construct telegram API url for configured bot credentials")
+      case Right(uri) =>
+        uri
+    }
 
-  private var receiver: Option[MessageReceiverService] = None
-
-  private def fetchResult(request: Task[Request])(implicit client: Client): Either[String, Json] = {
+  private def fetchResult(request: IO[Request[IO]])(
+      implicit client: Client[IO]): Either[String, Json] = {
     val bodyTask = client.fetch(request) {
       case Successful(entity) => entity.as[Json]
       case BadRequest(entity) => entity.as[Json]
-      case _ => Task.now(jNull)
+      case _                  => IO { jNull }
     }
-    val body = bodyTask.run
+    val body = bodyTask.unsafeRunSync()
 
     body.fieldOrFalse("ok") match {
       case j: Json if j.isFalse =>
-        val errMsg = body.fieldOrEmptyString("description").as[String].result.getOrElse("")
+        val errMsg =
+          body.fieldOrEmptyString("description").as[String].result.getOrElse("")
         Left(errMsg)
       case j: Json if j.isTrue =>
         Right(body.fieldOrNull("result"))
@@ -56,7 +61,8 @@ class TelegramConnector(botCredentials: String) extends Logging {
     log.debug(s"Trying to send message: $messageJson")
 
     val request = POST(baseUri / methodName, messageJson)
-    val result = fetchResult(request).flatMap(_.as[Message].result.left.map(_._1))
+    val result =
+      fetchResult(request).flatMap(_.as[Message].result.left.map(_._1))
 
     if (result.isLeft) {
       log.info(s"Failed to sent reply message: ${result.swap.getOrElse("")}")
@@ -66,7 +72,8 @@ class TelegramConnector(botCredentials: String) extends Logging {
   }
 
   /** This method is blocking for now! */
-  def startBlockingPollingReceive(interval: Duration, messageHandler: TelegramMessageHandler) = {
+  def startBlockingPollingReceive(interval: Duration,
+                                  messageHandler: TelegramMessageHandler) = {
     clearWebhook()
     var lastUpdateId = 0L
     for (i <- 1 to 1000) {
@@ -76,40 +83,41 @@ class TelegramConnector(botCredentials: String) extends Logging {
   }
 
   /**
-    * Start continuous message receiving messages for this bot. Messages are process using given message handler
-    *
-    * @return true if webhook was set and false if it's already been set earlier
+    * Start continuous message receiving for this bot. Messages are process using given message handler
     */
-  def setReceivingWebhook(host: String, port: Int, certificate: Option[File], keystorePath: String, password: String,
-                          messageHandler: TelegramMessageHandler): Boolean = {
-    if (receiver.isEmpty) {
-      //Regenerate each time
-      val token = "j3tdh83bd63"
+  def startMessageReceiverServer(
+      host: String,
+      port: Int,
+      certificate: Option[File],
+      keystorePath: String,
+      password: String,
+      messageHandler: TelegramMessageHandler
+  ): Unit = {
+    //Regenerate each time
+    val token = "j3tdh83bd63"
 
-      val hookUrl = s"https://$host:$port/receiveUpdate/" + token
+    val hookUrl = s"https://$host:$port/receiveUpdate/" + token
 
-      receiver = Some(new MessageReceiverService(token, keystorePath, password, port, messageHandler))
-      clearWebhook()
-      setWebhook(hookUrl, certificate)
-
-      true
-    } else {
-      false
-    }
-  }
-
-  def stopReceivingWebhook(): Unit = {
     clearWebhook()
-    receiver.foreach(_.shutdown())
-    receiver = None
+    setWebhook(hookUrl, certificate)
+
+    new MessageReceiverServer(
+      token,
+      keystorePath,
+      password,
+      port,
+      messageHandler
+    ).runServer()
   }
 
-  private def getUpdates(offset: Long, messageHandler: TelegramMessageHandler): Long = {
+  private def getUpdates(offset: Long,
+                         messageHandler: TelegramMessageHandler): Long = {
     val methodName = "getUpdates"
+    val request =
+      POST(baseUri / methodName, UrlForm("offset" -> offset.toString))
 
-    val request = POST(baseUri / methodName, UrlForm("offset" -> offset.toString))
-
-    fetchResult(request).flatMap(_.as[List[TelegramUpdate]].result.left.map(_._1)) match {
+    fetchResult(request).flatMap(
+      _.as[List[TelegramUpdate]].result.left.map(_._1)) match {
       case Left(errMsg) =>
         log.error(s"Failed to extract messages with error: $errMsg")
         offset
@@ -129,13 +137,15 @@ class TelegramConnector(botCredentials: String) extends Logging {
   private def setWebhook(hookUrl: String, certificate: Option[File]) = {
     val methodName = "setWebhook"
 
-    val request = certificate match {
+    val request: IO[Request[IO]] = certificate match {
       case Some(file) =>
-        val urlPart = Part.formData("url", hookUrl)
-        val filePart = Part.fileData("certificate", file)
-        val multipart = Multipart(Vector(urlPart, filePart))
+        val urlPart = Part.formData[IO]("url", hookUrl)
+        val filePart = Part.fileData[IO]("certificate", file)
+        val multipart = Multipart[IO](Vector(urlPart, filePart))
 
-        POST(baseUri / methodName, multipart).map(_.replaceAllHeaders(multipart.headers))
+        val uri = baseUri / methodName
+
+        POST(uri, multipart).map(_.replaceAllHeaders(multipart.headers))
       case None =>
         POST(baseUri / methodName, UrlForm("url" -> hookUrl))
     }
@@ -159,8 +169,6 @@ class TelegramConnector(botCredentials: String) extends Logging {
   }
 
   def shutdown(): Unit = {
-    stopReceivingWebhook()
     apiClient.shutdownNow()
   }
-
 }

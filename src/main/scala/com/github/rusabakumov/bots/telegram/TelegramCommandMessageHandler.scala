@@ -19,6 +19,8 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
 
   case class CommandExecution(command: TelegramBotCommand, state: Any)
 
+  type SetChatCommandStateCallback = (Long, CommandExecution) => Unit
+
   private val chatCommandStates = new mutable.HashMap[Long, CommandExecution]
 
   private lazy val commandMap: Map[String, TelegramBotCommand] = commands.flatMap { command =>
@@ -77,6 +79,14 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
         case None => chatCommandStates.remove(chatId)
       }
     }
+  }
+
+  /**
+    * Used to update particular chat state without reaction to user message, but in "push" mode.
+    * For example, by scheduled event ?*
+    */
+  protected def setCommandState: SetChatCommandStateCallback = { case (chatId, commandExecution) =>
+    chatCommandStates.put(chatId, commandExecution)
   }
 
   /**

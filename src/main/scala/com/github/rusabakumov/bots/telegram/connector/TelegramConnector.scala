@@ -16,6 +16,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.dsl.io._
 import org.http4s.multipart._
 import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class TelegramConnector(botCredentials: String)
     extends Http4sClientDsl[IO]
@@ -105,7 +106,8 @@ class TelegramConnector(botCredentials: String)
       keystorePath,
       password,
       port,
-      messageHandler)
+      messageHandler
+    ).runServer()
   }
 
   private def getUpdates(offset: Long,

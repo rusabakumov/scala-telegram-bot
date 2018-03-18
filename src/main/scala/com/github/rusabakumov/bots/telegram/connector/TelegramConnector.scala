@@ -82,16 +82,16 @@ class TelegramConnector(botCredentials: String)
   }
 
   /**
-    * Start continuous message receiving messages for this bot. Messages are process using given message handler
+    * Start continuous message receiving for this bot. Messages are process using given message handler
     */
-  def startMessageReceiverService(
+  def startMessageReceiverServer(
       host: String,
       port: Int,
       certificate: Option[File],
       keystorePath: String,
       password: String,
       messageHandler: TelegramMessageHandler
-  ): MessageReceiverService = {
+  ): Unit = {
     //Regenerate each time
     val token = "j3tdh83bd63"
 
@@ -100,7 +100,7 @@ class TelegramConnector(botCredentials: String)
     clearWebhook()
     setWebhook(hookUrl, certificate)
 
-    new MessageReceiverService(
+    new MessageReceiverServer(
       token,
       keystorePath,
       password,

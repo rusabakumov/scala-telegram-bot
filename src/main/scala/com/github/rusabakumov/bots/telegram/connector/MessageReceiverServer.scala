@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 
 /** Should be used only by TelegramConnector */
-class MessageReceiverService(
+class MessageReceiverServer(
     token: String,
     keystorePath: String,
     password: String,
@@ -47,7 +47,7 @@ class MessageReceiverService(
     .mountService(service)
     .bindHttp(port, "0.0.0.0")
 
-  /** Runs server infinitely. Should be called at the end of bot launcher method */
+  /** Runs server infinitely. Should be called at the end of bot initialization */
   def runServer()(implicit ec: ExecutionContext): Unit = {
     serverBuilder.serve.compile.last.unsafeRunSync()
   }

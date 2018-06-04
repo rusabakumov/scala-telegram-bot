@@ -140,8 +140,9 @@ class TelegramConnector(botCredentials: String)
     val request: IO[Request[IO]] = certificate match {
       case Some(file) =>
         val urlPart = Part.formData[IO]("url", hookUrl)
+        val connectionsPart = Part.formData[IO]("max_connections", "1")
         val filePart = Part.fileData[IO]("certificate", file)
-        val multipart = Multipart[IO](Vector(urlPart, filePart))
+        val multipart = Multipart[IO](Vector(urlPart, connectionsPart, filePart))
 
         val uri = baseUri / methodName
 

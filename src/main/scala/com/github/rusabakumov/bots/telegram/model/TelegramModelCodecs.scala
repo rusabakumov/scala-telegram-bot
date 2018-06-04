@@ -37,8 +37,8 @@ object TelegramModelCodecs {
 
   implicit def forceReplyMarkupCodecJson: EncodeJson[ForceReplyMarkup] = EncodeJson { (f: ForceReplyMarkup) =>
     ("force_reply" := true) ->:
-      ("selective" := f.selective) ->:
       jEmptyObject
+      //("selective" := f.selective) ->:
   }
 
   implicit def replyKeyboardRemoveMarkupCodecJson: EncodeJson[ReplyKeyboardRemoveMarkup] = EncodeJson {

@@ -12,6 +12,7 @@ import org.http4s.dsl.io._
 import org.http4s.server.SSLKeyStoreSupport.StoreInfo
 import org.http4s.server.blaze._
 import org.slf4j.LoggerFactory
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 /** Should be used only by TelegramConnector */
@@ -27,6 +28,9 @@ class MessageReceiverServer(
   private val sl4jLogger = LoggerFactory.getLogger(this.getClass)
   private val log = ScalaLogger(sl4jLogger)
 
+  //Queue for storing last update ids - to resolve issues with double-processed messages
+  private val updateIdQueue: mutable.Queue[Long] = mutable.Queue.empty[Long]
+
   private val service = HttpService[IO] {
     case req @ POST -> Root / "receiveUpdate" / `token` =>
       req.decode[Json] { json =>
@@ -34,6 +38,7 @@ class MessageReceiverServer(
           case Left((errMsg, _)) =>
             log.error(s"Cannot decode update with error: $errMsg")
           case Right(update) =>
+            log.info(s"Processing update ${update.updateId}")
             update.message.foreach(messageHandler.handleMessage)
         }
         Ok()

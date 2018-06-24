@@ -1,94 +1,127 @@
 package com.github.rusabakumov.bots.telegram.connector
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.stream.ActorMaterializer
 import argonaut.Argonaut._
-import argonaut._
-import cats.effect.IO
+import argonaut.DecodeJson
 import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
+import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 import com.github.rusabakumov.util.Logging
+import de.heikoseeberger.akkahttpargonaut.ArgonautSupport
 import java.io.File
-import org.http4s.Status.Successful
-import org.http4s._
-import org.http4s.argonaut._
-import org.http4s.client._
-import org.http4s.client.blaze.Http1Client
-import org.http4s.client.dsl.Http4sClientDsl
-import org.http4s.dsl.io._
-import org.http4s.multipart._
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.annotation.tailrec
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class TelegramConnector(botCredentials: String)
-    extends Http4sClientDsl[IO]
-    with Logging {
+    extends Logging
+    with ArgonautSupport {
 
-  import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
+  import TelegramConnector._
 
-  implicit private val apiClient = Http1Client[IO]().unsafeRunSync()
+  implicit val system = ActorSystem("telegram-connector")
+  implicit val materializer = ActorMaterializer()
+  implicit val executionContext: ExecutionContext = system.dispatcher
 
-  private val baseUri: Uri =
-    Uri.fromString("https://api.telegram.org/" + botCredentials) match {
-      case Left(_) =>
-        throw new IllegalArgumentException(
-          "Cannot construct telegram API url for configured bot credentials")
-      case Right(uri) =>
-        uri
-    }
+  private val baseUri: Uri = "https://api.telegram.org/" + botCredentials + "/"
 
-  private def fetchResult(request: IO[Request[IO]])(
-      implicit client: Client[IO]): Either[String, Json] = {
-    val bodyTask = client.fetch(request) {
-      case Successful(entity) => entity.as[Json]
-      case BadRequest(entity) => entity.as[Json]
-      case _                  => IO { jNull }
-    }
-    val body = bodyTask.unsafeRunSync()
-
-    body.fieldOrFalse("ok") match {
-      case j: Json if j.isFalse =>
-        val errMsg =
-          body.fieldOrEmptyString("description").as[String].result.getOrElse("")
-        Left(errMsg)
-      case j: Json if j.isTrue =>
-        Right(body.fieldOrNull("result"))
-    }
-  }
-
-  def sendMessage(message: MessageToSend): Either[String, Message] = {
+  def sendMessage(messageToSend: MessageToSend): Future[Either[String, Message]] = {
     val methodName = "sendMessage"
 
-    val messageJson = message.asJson
-    log.debug(s"Trying to send message: $messageJson")
+    log.debug(s"Trying to send message: $messageToSend")
 
-    val request = POST(baseUri / methodName, messageJson)
-    val result =
-      fetchResult(request).flatMap(_.as[Message].result.left.map(_._1))
+    val responseFuture = Marshal(messageToSend).to[RequestEntity].flatMap { entity =>
+      val request = HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = entity
+      )
 
-    if (result.isLeft) {
-      log.info(s"Failed to sent reply message: ${result.swap.getOrElse("")}")
+      Http().singleRequest(request)
     }
 
-    result
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Message]])
+      .map {
+        case TelegramAPIResult(_, Some(message), _) =>
+          Right(message)
+
+        case TelegramAPIResult(_, None, code) =>
+          Left(s"Telegram api returned error code $code for method $methodName")
+      }
+      .recover {
+        case err =>
+          Left(s"Failed to send message with error: ${err.getMessage}")
+      }
   }
 
-  /** This method is blocking for now! */
-  def startBlockingPollingReceive(interval: Duration,
-                                  messageHandler: TelegramMessageHandler) = {
+  @tailrec
+  final def startLongPollingReceiver(
+    messageHandler: TelegramMessageHandler,
+    offset: Long = 0L,
+    requestTimeout: Int = 3
+  ): Unit = {
     clearWebhook()
-    var lastUpdateId = 0L
-    for (i <- 1 to 1000) {
-      lastUpdateId = getUpdates(lastUpdateId + 1, messageHandler)
-      Thread.sleep(interval.toMillis)
+    val methodName = "getUpdates"
+
+    val responseFuture = Http().singleRequest(
+      HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = FormData(
+          "offset" -> offset.toString,
+          "timeout" -> requestTimeout.toString
+        ).toEntity
+      )
+    )
+
+    val updatesResponse = responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[List[TelegramUpdate]]])
+      .map {
+        case TelegramAPIResult(_, Some(updates), _) =>
+          val messages = updates.flatMap(_.message)
+          if (messages.nonEmpty) log.info(s"Received messages: $messages")
+          messages.foreach(messageHandler.handleMessage)
+
+          Right(updates.map(_.updateId) match {
+            case Nil  => 0
+            case list => list.max(Ordering[Long])
+          })
+
+        case TelegramAPIResult(_, None, code) =>
+          Left(s"Telegram api returned error code $code for method $methodName")
+      }
+      .recover {
+        case err => Left(err.getMessage)
+      }
+
+    //Waiting request to finish. Adding 2 seconds to passed timeout for network overhead
+    val result: Either[String, Long] = try {
+      Await.result(updatesResponse, (requestTimeout + 2).seconds)
+    } catch {
+      case _: java.util.concurrent.TimeoutException =>
+        Left(s"Can't get updates within specified timeout. Check connection to telegram api servers")
+    }
+
+    //We have to unroll previous future separately because tailrec would'n work otherwise
+    result match {
+      case Right(lastOffset) => startLongPollingReceiver(messageHandler, lastOffset + 1) //+1 is important
+      case Left(err) => log.error(s"Error during processing updates: $err")
     }
   }
 
   /**
     * Start continuous message receiving for this bot. Messages are process using given message handler
     */
-  def startMessageReceiverServer(
+  def startWebhookReceiver(
       host: String,
       port: Int,
-      certificate: Option[File],
+      certificate: File,
       keystorePath: String,
       password: String,
       messageHandler: TelegramMessageHandler
@@ -101,75 +134,79 @@ class TelegramConnector(botCredentials: String)
     clearWebhook()
     setWebhook(hookUrl, certificate)
 
-    new MessageReceiverServer(
+    new AkkaHttpMessageWebhookHandler(
       token,
       keystorePath,
       password,
+      host,
       port,
       messageHandler
-    ).runServer()
+    ).runService()
   }
 
-  private def getUpdates(offset: Long,
-                         messageHandler: TelegramMessageHandler): Long = {
-    val methodName = "getUpdates"
-    val request =
-      POST(baseUri / methodName, UrlForm("offset" -> offset.toString))
-
-    fetchResult(request).flatMap(
-      _.as[List[TelegramUpdate]].result.left.map(_._1)) match {
-      case Left(errMsg) =>
-        log.error(s"Failed to extract messages with error: $errMsg")
-        offset
-
-      case Right(updates) =>
-        val messages = updates.flatMap(_.message)
-        if (messages.nonEmpty) log.info(s"Received messages: $messages")
-        messages foreach messageHandler.handleMessage
-
-        updates.map(_.updateId) match {
-          case Nil  => 0
-          case list => list.max(Ordering[Long])
-        }
-    }
-  }
-
-  private def setWebhook(hookUrl: String, certificate: Option[File]) = {
+  private def setWebhook(hookUrl: String, certificate: File) = {
     val methodName = "setWebhook"
 
-    val request: IO[Request[IO]] = certificate match {
-      case Some(file) =>
-        val urlPart = Part.formData[IO]("url", hookUrl)
-        val connectionsPart = Part.formData[IO]("max_connections", "1")
-        val filePart = Part.fileData[IO]("certificate", file)
-        val multipart = Multipart[IO](Vector(urlPart, connectionsPart, filePart))
+    val urlPart = Multipart.FormData.BodyPart.Strict("url", hookUrl)
+    val maxConnectionsPart =
+      Multipart.FormData.BodyPart.Strict("max_connections", "1")
+    val bodyPartOption = Multipart.FormData.BodyPart.fromFile(
+      "certificate",
+      ContentTypes.`application/octet-stream`,
+      certificate)
 
-        val uri = baseUri / methodName
+    val multipartData =
+      Multipart.FormData(List(urlPart, maxConnectionsPart, bodyPartOption): _*)
 
-        POST(uri, multipart).map(_.replaceAllHeaders(multipart.headers))
-      case None =>
-        POST(baseUri / methodName, UrlForm("url" -> hookUrl))
+    val responseFuture = Marshal(multipartData).to[RequestEntity].flatMap {
+      entity =>
+        val request = HttpRequest(
+          HttpMethods.POST,
+          baseUri + methodName,
+          entity = entity
+        )
+
+        Http().singleRequest(request)
     }
 
-    val result = fetchResult(request)
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Unit]])
+      .map(Right(_))
+      .recover {
+        case err =>
+          Left(s"Failed to set webhook: ${err.getMessage}")
+      }
+  }
 
-    if (result.isLeft) {
-      log.error(s"Failed to set webhook: ${result.swap.getOrElse("")}")
+  private def clearWebhook(): Unit = {
+    val methodName = "deletWebhook"
+
+    val responseFuture = Http().singleRequest(
+      HttpRequest(
+        HttpMethods.GET,
+        baseUri + methodName
+      )
+    )
+
+    responseFuture.recover {
+      case err => Left(s"Failed to send message with error: ${err.getMessage}")
     }
   }
 
-  private def clearWebhook() = {
-    val methodName = "setWebhook"
+//  def shutdown(): Unit = {
+//    apiClient.shutdownNow()
+//  }
+}
 
-    val request = POST(baseUri / methodName, UrlForm("url" -> ""))
-    val result = fetchResult(request)
+object TelegramConnector {
+  case class TelegramAPIResult[T](ok: Boolean, result: Option[T], error_code: Option[Int])
 
-    if (result.isLeft) {
-      log.error(s"Failed to clear webhook: ${result.swap.getOrElse("")}")
-    }
-  }
+  implicit def telegramAPIResultDecodeJson[T](implicit ev: DecodeJson[T]): DecodeJson[TelegramAPIResult[T]] =
+    jdecode3L(TelegramAPIResult.apply[T])("ok", "result", "error_code")
 
-  def shutdown(): Unit = {
-    apiClient.shutdownNow()
-  }
+  implicit def getUpdatesEncodeJson: DecodeJson[TelegramAPIResult[List[TelegramUpdate]]] =
+    telegramAPIResultDecodeJson[List[TelegramUpdate]]
+
+  implicit def sendMessageEncodeJson: DecodeJson[TelegramAPIResult[Message]] =
+    telegramAPIResultDecodeJson[Message]
 }

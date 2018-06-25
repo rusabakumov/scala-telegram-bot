@@ -122,6 +122,8 @@ class TelegramConnector(botCredentials: String)
   def startWebhookReceiver(
       host: String,
       port: Int,
+      bindHost: String,
+      bingPort: Int,
       certificate: File,
       keystorePath: String,
       password: String,
@@ -139,8 +141,8 @@ class TelegramConnector(botCredentials: String)
       token,
       keystorePath,
       password,
-      host,
-      port,
+      bindHost,
+      bingPort,
       messageHandler
     ).runService()
   }

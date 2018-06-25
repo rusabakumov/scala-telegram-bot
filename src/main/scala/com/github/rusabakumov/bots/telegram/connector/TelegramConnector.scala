@@ -9,8 +9,8 @@ import akka.stream.ActorMaterializer
 import argonaut.Argonaut._
 import argonaut.DecodeJson
 import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
-import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
 import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
+import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
 import com.github.rusabakumov.util.Logging
 import de.heikoseeberger.akkahttpargonaut.ArgonautSupport
 import java.io.File
@@ -19,8 +19,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class TelegramConnector(botCredentials: String)
-    extends Logging
-    with ArgonautSupport {
+  extends Logging
+  with ArgonautSupport {
 
   import TelegramConnector._
 
@@ -64,7 +64,7 @@ class TelegramConnector(botCredentials: String)
   final def startLongPollingReceiver(
     messageHandler: TelegramMessageHandler,
     offset: Long = 0L,
-    requestTimeout: Int = 3
+    requestTimeout: Int
   ): Unit = {
     clearWebhook()
     val methodName = "getUpdates"
@@ -105,12 +105,13 @@ class TelegramConnector(botCredentials: String)
       Await.result(updatesResponse, (requestTimeout + 2).seconds)
     } catch {
       case _: java.util.concurrent.TimeoutException =>
-        Left(s"Can't get updates within specified timeout. Check connection to telegram api servers")
+        log.warn(s"Can't get updates within specified timeout. Check connection to telegram api servers")
+        Right(offset)
     }
 
     //We have to unroll previous future separately because tailrec would'n work otherwise
     result match {
-      case Right(lastOffset) => startLongPollingReceiver(messageHandler, lastOffset + 1) //+1 is important
+      case Right(lastOffset) => startLongPollingReceiver(messageHandler, lastOffset + 1, requestTimeout) //+1 is important
       case Left(err) => log.error(s"Error during processing updates: $err")
     }
   }
@@ -134,7 +135,7 @@ class TelegramConnector(botCredentials: String)
     clearWebhook()
     setWebhook(hookUrl, certificate)
 
-    new AkkaHttpMessageWebhookHandler(
+    new WebhookReceiverService(
       token,
       keystorePath,
       password,
@@ -179,7 +180,7 @@ class TelegramConnector(botCredentials: String)
   }
 
   private def clearWebhook(): Unit = {
-    val methodName = "deletWebhook"
+    val methodName = "deleteWebhook"
 
     val responseFuture = Http().singleRequest(
       HttpRequest(
@@ -192,10 +193,6 @@ class TelegramConnector(botCredentials: String)
       case err => Left(s"Failed to send message with error: ${err.getMessage}")
     }
   }
-
-//  def shutdown(): Unit = {
-//    apiClient.shutdownNow()
-//  }
 }
 
 object TelegramConnector {

@@ -7,7 +7,8 @@ case class Message(
   messageId: Long,
   text: Option[String],
   chat: Chat,
-  entities: Option[List[MessageEntity]]
+  entities: Option[List[MessageEntity]],
+  forwardDate: Option[Int] //To determine whether message is forwarded or not
 )
 
 case class MessageToSend(

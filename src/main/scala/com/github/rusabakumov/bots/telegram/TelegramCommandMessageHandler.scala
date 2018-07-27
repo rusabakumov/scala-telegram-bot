@@ -17,7 +17,7 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
 
   private lazy val InitialReplyMarkup = defaultKeyboard.getOrElse(ReplyKeyboardRemoveMarkup(selective = false))
 
-  case class CommandExecution(command: TelegramBotCommand, state: Any)
+  case class CommandExecution(command: TelegramBotCommandSync, state: Any)
 
   type SetChatCommandStateCallback = (Long, CommandExecution) => Unit
 
@@ -43,7 +43,9 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
       // regardless of the chat state
       log.debug(s"Got message from chat $chatId: $message")
       val (messagesToSend, commandExecutionOption: Option[CommandExecution]) = extractCommand(message) match {
-        case Some(commandParams) => handleNewCommand(commandParams, message)
+        case Some(commandParams) =>
+          handleNewCommand(commandParams, message)
+
         case None => chatCommandStates.get(chatId) match {
           case Some(CommandExecution(command, state)) =>
             val preparedText = trimMentions(message)
@@ -132,11 +134,16 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
   private def handleNewCommand(commandParams: CommandParams, message: Message):
       (List[MessageToSend], Option[CommandExecution]) = {
     commandMap.get(commandParams.nameString) match {
-      case Some(command) =>
+      case Some(command: TelegramBotCommandSync) =>
         val (messagesToSend, stateOption) = command.execute(message, commandParams.params, None)
         val commandExecutionOption = stateOption.map(state => CommandExecution(command, state))
         (messagesToSend, commandExecutionOption)
-      case None =>
+
+      case Some(command: TelegramBotCommandAsync) =>
+        command.execute(message, commandParams.params)
+        (List.empty, None)
+
+      case _ =>
         (List(MessageToSend(message.chat.id, s"I don't know command $commandParams.nameString!")), None)
     }
   }

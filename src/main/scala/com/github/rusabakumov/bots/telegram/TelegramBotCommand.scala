@@ -4,6 +4,10 @@ import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
 
 trait TelegramBotCommand {
   def names: List[String]
+}
+
+trait TelegramBotCommandSync extends TelegramBotCommand {
+  def names: List[String]
 
   type State
 
@@ -32,4 +36,18 @@ trait StatelessTelegramBotCommand extends TelegramBotCommand {
     * @param commandParams text of the message with trimmed command text
     */
   def execute(message: Message, commandParams: String): List[MessageToSend]
+}
+
+trait TelegramBotCommandAsync extends TelegramBotCommand {
+  def names: List[String]
+
+  /** Callback for sending messages when they are ready */
+  def sendMessage(message: MessageToSend): Unit
+
+  /**
+    * Simplified reaction method for commands that will never use state
+    * @param message with command
+    * @param commandParams text of the message with trimmed command text
+    */
+  def execute(message: Message, commandParams: String): Unit
 }

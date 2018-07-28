@@ -21,7 +21,7 @@ trait TelegramBotCommandSync extends TelegramBotCommand {
     (List[MessageToSend], Option[State])
 }
 
-trait StatelessTelegramBotCommand extends TelegramBotCommand {
+trait StatelessTelegramBotCommand extends TelegramBotCommandSync {
   def names: List[String]
 
   type State = Nothing

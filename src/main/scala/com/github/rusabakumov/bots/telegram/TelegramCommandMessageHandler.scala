@@ -144,7 +144,7 @@ trait TelegramCommandMessageHandler extends TelegramMessageHandler with Logging 
         (List.empty, None)
 
       case _ =>
-        (List(MessageToSend(message.chat.id, s"I don't know command $commandParams.nameString!")), None)
+        (List(MessageToSend(message.chat.id, s"I don't know command ${commandParams.nameString}!")), None)
     }
   }
 

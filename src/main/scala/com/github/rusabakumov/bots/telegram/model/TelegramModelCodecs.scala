@@ -14,9 +14,9 @@ object TelegramModelCodecs {
     MessageEntity.apply, MessageEntity.unapply
   )("type", "offset", "length")
 
-  implicit def messageCodecJson: CodecJson[Message] = casecodec5(
+  implicit def messageCodecJson: CodecJson[Message] = casecodec6(
     Message.apply, Message.unapply
-  )("message_id", "text", "chat", "entities", "forward_date")
+  )("message_id", "text", "chat", "entities", "reply_to_message", "forward_date")
 
   implicit def messageToSendCodecJson: EncodeJson[MessageToSend] = EncodeJson { (m: MessageToSend) =>
     ("chat_id" := m.chatId) ->:

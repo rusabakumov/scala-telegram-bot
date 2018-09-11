@@ -3,24 +3,68 @@ package com.github.rusabakumov.bots.telegram.model
 case class TelegramUpdate(
   updateId: Long,
   message: Option[Message],
-  inlineQuery: Option[InlineQuery]
+  inlineQuery: Option[InlineQuery],
+  callbackQuery: Option[CallbackQuery]
 )
 
 case class InlineQuery(
   id: String,
-  user: TelegramUser,
+  from: TelegramUser,
   query: String,
   offset: String
 )
 
+case class CallbackQuery(
+  id: String,
+  from: TelegramUser,
+  message: Option[Message] = None,
+  inlineMessageId: Option[String] = None,
+  chatInstance: Option[String] = None,
+  data: Option[String] = None,
+  gameShortName: Option[String] = None
+)
+
 case class TelegramUser(
-  id: String
+  id: Int,
+  isBot: Boolean,
+  firstName: String,
+  lastName: Option[String] = None,
+  username: Option[String] = None,
+  languageCode: Option[String] = None
 )
 
 case class AnswerInlineQuery(
   inlineQueryId: String,
   results: List[InlineQueryResult],
   isPersonal: Boolean = true
+)
+
+case class AnswerCallbackQuery(
+  callbackQueryId: String,
+  text: Option[String] = None,
+  showAlert: Boolean = false,
+  url: Option[String] = None,
+  cacheTime: Option[Int] = None
+)
+
+case class EditMessageText(
+  chatId: Long,
+  messageId: Long,
+  text: String,
+  parseMode: Option[String] = None,
+  replyMarkup: Option[ReplyMarkup] = None
+)
+
+case class EditMessageReplyMarkup(
+  chatId: Option[Long] = None,
+  messageId: Option[Long] = None,
+  inlineMessageId: Option[String] = None,
+  replyMarkup: Option[ReplyMarkup] = None
+)
+
+case class DeleteMessage(
+  chatId: Long,
+  messageId: Long  
 )
 
 sealed trait InlineQueryResult

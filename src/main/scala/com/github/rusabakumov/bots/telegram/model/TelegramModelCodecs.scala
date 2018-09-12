@@ -1,8 +1,7 @@
 package com.github.rusabakumov.bots.telegram.model
 
-import argonaut.Argonaut.{casecodec1, casecodec3, casecodec4, jEmptyObject}
-import argonaut.{CodecJson, EncodeJson}
-import argonaut._, Argonaut._
+import argonaut.Argonaut._
+import argonaut._
 
 object TelegramModelCodecs {
 
@@ -32,6 +31,7 @@ object TelegramModelCodecs {
       case f: ForceReplyMarkup => forceReplyMarkupCodecJson(f)
       case k: ReplyKeyboardMarkup => replyKeyboardMarkupCodecJson(k)
       case k: ReplyKeyboardRemoveMarkup => replyKeyboardRemoveMarkupCodecJson(k)
+      case k: InlineKeyboardMarkup => inlineKeyboardMarkupCodecJson(k)
     }
   }
 
@@ -39,6 +39,11 @@ object TelegramModelCodecs {
     ("force_reply" := true) ->:
       jEmptyObject
       //("selective" := f.selective) ->:
+  }
+
+  implicit def inlineKeyboardMarkupCodecJson: EncodeJson[InlineKeyboardMarkup] = EncodeJson { (f: InlineKeyboardMarkup) =>
+    ("inline_keyboard" := f.inlineKeyboard) ->:
+      jEmptyObject
   }
 
   implicit def replyKeyboardRemoveMarkupCodecJson: EncodeJson[ReplyKeyboardRemoveMarkup] = EncodeJson {
@@ -63,17 +68,60 @@ object TelegramModelCodecs {
       jEmptyObject
   }
 
-  implicit def telegramUpdateCodecJson: CodecJson[TelegramUpdate] = casecodec3(
+  implicit def inlineKeyboardButtonCodecJson: EncodeJson[InlineKeyboardButton] = EncodeJson { (b: InlineKeyboardButton) =>
+    ("text" := b.text) ->:
+      b.url.map("url" := _) ->?:
+      b.callbackData.map("callback_data" := _) ->?:
+      b.switchInlineQuery.map("switch_inline_query" := _) ->?:
+      b.switchInlineQueryCurrentChat.map("switch_inline_query_current_chat" := _) ->?:
+      jEmptyObject
+  }
+
+  implicit def telegramUpdateCodecJson: CodecJson[TelegramUpdate] = casecodec4(
     TelegramUpdate.apply, TelegramUpdate.unapply
-  )("update_id", "message", "inline_query")
+  )("update_id", "message", "inline_query", "callback_query")
 
   implicit def inlineQueryCodecJson: CodecJson[InlineQuery] = casecodec4(
     InlineQuery.apply, InlineQuery.unapply
-  )("id", "usser", "query", "offset")
+  )("id", "from", "query", "offset")
 
-  implicit def telegramUserCodecJson: CodecJson[TelegramUser] = casecodec1(
+  implicit def callbackQueryCodecJson: CodecJson[CallbackQuery] = casecodec7(
+    CallbackQuery.apply, CallbackQuery.unapply
+  )("id", "from", "message", "inline_message_id", "chat_instance", "data", "game_short_name")
+
+  implicit def answerCallbackQueryCodecJson: EncodeJson[AnswerCallbackQuery] = EncodeJson { (a: AnswerCallbackQuery) =>
+    ("callback_query_id" := a.callbackQueryId) ->:
+    a.text.map("text" := _) ->?:
+    ("show_alert" := a.showAlert) ->:
+    a.url.map("url" := _) ->?:
+    a.cacheTime.map("cache_time" := _) ->?:
+    jEmptyObject
+  }
+
+  implicit def editMessageTextCodecJson: EncodeJson[EditMessageText] = EncodeJson { (a: EditMessageText) =>
+    ("chat_id" := a.chatId) ->:
+    ("message_id" := a.messageId) ->:
+    ("text" := a.text) ->:
+    a.parseMode.map("parse_mode" := _) ->?:
+    a.replyMarkup.map("reply_markup" := _) ->?:
+    jEmptyObject
+  }
+
+  implicit def editMessageReplyMarkupCodecJson: EncodeJson[EditMessageReplyMarkup] = EncodeJson { (a: EditMessageReplyMarkup) =>
+    a.chatId.map("chat_id" := _) ->?:
+    a.messageId.map("message_id" := _) ->?:
+    a.inlineMessageId.map("inline_message_id" := _) ->?:
+    a.replyMarkup.map("reply_markup" := _) ->?:
+    jEmptyObject
+  }
+
+  implicit def deleteMessageCodecJson: CodecJson[DeleteMessage] = casecodec2(
+    DeleteMessage.apply, DeleteMessage.unapply
+  )("chat_id", "message_id")
+
+  implicit def telegramUserCodecJson: CodecJson[TelegramUser] = casecodec6(
     TelegramUser.apply, TelegramUser.unapply
-  )("id")
+  )("id", "is_bot", "first_name", "last_name", "username", "language_code")
 
 //  implicit def inlineQueryResultCodecJson: EncodeJson[InlineQueryResult] = EncodeJson { (r: InlineQueryResult) =>
 //    r match {

@@ -1,6 +1,6 @@
 organization := "com.github.rusabakumov"
 name := "scala-telegram-bot"
-version := "3.0.0-alpha"
+version := "3.0.0-alpha3"
 scalaVersion := "2.12.6"
 
 bintrayRepository := "rusabakumov-bintray"

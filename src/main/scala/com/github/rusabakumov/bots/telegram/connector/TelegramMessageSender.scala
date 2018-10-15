@@ -4,12 +4,12 @@ import com.github.rusabakumov.bots.telegram.model._
 import scala.concurrent.Future
 
 /** Interface allowing sending messages */
+//TODO it should be created by method in telegramConnector
 class TelegramMessageSender(telegramConnector: TelegramConnector) {
 
 //  def defaultKeyboard: Option[ReplyKeyboardMarkup] = None
 //
 //  private lazy val InitialReplyMarkup = defaultKeyboard.getOrElse(ReplyKeyboardRemoveMarkup(selective = false))
-
   def sendMessage(messageToSend: MessageToSend, setDefaultKeyboard: Boolean = false): Future[Either[String, Message]] = {
     telegramConnector.sendMessage(messageToSend)
   }

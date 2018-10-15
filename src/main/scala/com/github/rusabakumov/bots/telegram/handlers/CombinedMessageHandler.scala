@@ -5,6 +5,9 @@ import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
 import com.github.rusabakumov.util.Logging
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Processes incoming message passing it through given list of handlers until it will be processed
+  * Handlers called sequentially
+  */
 class CombinedMessageHandler(
   handlers: List[TelegramMessageHandler],
   val telegramMessageSender: TelegramMessageSender

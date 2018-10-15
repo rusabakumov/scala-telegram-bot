@@ -5,12 +5,29 @@ case class Chat(id: Long, chatType: String, title: Option[String], username: Opt
 
 case class Message(
   messageId: Long,
-  text: Option[String],
+  rawText: Option[String],
   chat: Chat,
   entities: Option[List[MessageEntity]],
   replyToMessage: Option[Message],
   forwardDate: Option[Int] //To determine whether message is forwarded or not
-)
+) {
+
+  lazy val text: String = {
+    val entitiesList = entities.toList.flatten
+    val mentions = entitiesList.filter(_.entityType == "mention").sortBy(_.offset)
+
+    val messageText = rawText.getOrElse("")
+
+    //We assume that cannot be nested or overlapping mentions
+    val (_, trimmedText) = mentions.foldLeft((0, messageText)) {
+      case ((trimmedSymbols, text), mention) =>
+        val updatedText = text.slice(mention.offset - trimmedSymbols, mention.length)
+        (trimmedSymbols + mention.length, updatedText)
+    }
+
+    trimmedText
+  }
+}
 
 case class MessageToSend(
   chatId: Long,

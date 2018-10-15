@@ -31,4 +31,18 @@ final case class ReplyKeyboardMarkup(
   selective: Boolean = false
 ) extends ReplyMarkup
 
+final case class InlineKeyboardMarkup(
+  inlineKeyboard: List[List[InlineKeyboardButton]]
+) extends ReplyMarkup
+
 case class KeyboardButton(text: String, requestContact: Boolean = false, requestLocaton: Boolean = false)
+
+case class InlineKeyboardButton(
+  text: String,
+  url: Option[String] = None,
+  callbackData: Option[String] = None,
+  switchInlineQuery: Option[String] = None,
+  switchInlineQueryCurrentChat: Option[String] = None,
+  // callbackGame: Option[String] = None,
+  pay: Boolean = false
+)

@@ -1,12 +1,9 @@
 package com.github.rusabakumov.bots.telegram
 
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
+import scala.concurrent.Future
 
 trait TelegramBotCommand {
-  def names: List[String]
-}
-
-trait TelegramBotCommandSync extends TelegramBotCommand {
   def names: List[String]
 
   type State
@@ -18,17 +15,17 @@ trait TelegramBotCommandSync extends TelegramBotCommand {
     * @param state state of this command that it set on previous runs
     */
   def execute(message: Message, commandParams: String, state: Option[State]):
-    (List[MessageToSend], Option[State])
+    (ExecutionResult, Option[Future[ExecutionResult]])
 }
 
-trait StatelessTelegramBotCommand extends TelegramBotCommandSync {
+trait StatelessTelegramBotCommand extends TelegramBotCommand {
   def names: List[String]
 
   type State = Nothing
 
   /** Wrapper for simplified command */
   final def execute(message: Message, commandParams: String, state: Option[State]):
-    (List[MessageToSend], Option[State]) = (execute(message, commandParams), None)
+    (ExecutionResult, Option[Future[ExecutionResult]]) = (ExecutionResult(execute(message, commandParams), None), None)
 
   /**
     * Simplified reaction method for commands that will never use state
@@ -38,16 +35,9 @@ trait StatelessTelegramBotCommand extends TelegramBotCommandSync {
   def execute(message: Message, commandParams: String): List[MessageToSend]
 }
 
-trait TelegramBotCommandAsync extends TelegramBotCommand {
-  def names: List[String]
-
-  /** Callback for sending messages when they are ready */
-  def sendMessage(message: MessageToSend): Unit
-
-  /**
-    * Simplified reaction method for commands that will never use state
-    * @param message with command
-    * @param commandParams text of the message with trimmed command text
-    */
-  def execute(message: Message, commandParams: String): Unit
-}
+case class ExecutionResult(
+  messages: List[MessageToSend],
+  state: Option[Any] = None,
+  deleteMessage: Boolean = false,
+  setDefaultKeyboard: Boolean = false
+)

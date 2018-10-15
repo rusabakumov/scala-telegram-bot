@@ -10,7 +10,7 @@ import argonaut.Argonaut._
 import argonaut.DecodeJson
 import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
-import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
+import com.github.rusabakumov.bots.telegram.model._
 import com.github.rusabakumov.util.Logging
 import de.heikoseeberger.akkahttpargonaut.ArgonautSupport
 import java.io.File
@@ -30,12 +30,21 @@ class TelegramConnector(botCredentials: String)
 
   private val baseUri: Uri = "https://api.telegram.org/" + botCredentials + "/"
 
+  private def logError(methodName: String, codeOpt: Option[Int], descOpt: Option[String]) = {
+    val codeMsg = codeOpt.map(c => s"(code $c)").getOrElse("")
+    val msg = s"Telegram api returned error $codeMsg for method $methodName"
+    val errorMsg = descOpt.map(m => s"$msg: $m").getOrElse(msg)
+    log.debug(errorMsg)
+    Left(errorMsg)
+  }
+
   def sendMessage(messageToSend: MessageToSend): Future[Either[String, Message]] = {
     val methodName = "sendMessage"
 
     log.debug(s"Trying to send message: $messageToSend")
 
     val responseFuture = Marshal(messageToSend).to[RequestEntity].flatMap { entity =>
+      log.debug(s"Sending entity: $entity")
       val request = HttpRequest(
         HttpMethods.POST,
         baseUri + methodName,
@@ -48,16 +57,152 @@ class TelegramConnector(botCredentials: String)
     responseFuture
       .flatMap(Unmarshal(_).to[TelegramAPIResult[Message]])
       .map {
-        case TelegramAPIResult(_, Some(message), _) =>
+        case TelegramAPIResult(_, Some(message), _, _) =>
+          log.debug(s"Received message: $message")
           Right(message)
 
-        case TelegramAPIResult(_, None, code) =>
-          Left(s"Telegram api returned error code $code for method $methodName")
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
       }
       .recover {
         case err =>
-          Left(s"Failed to send message with error: ${err.getMessage}")
+          val msg = s"Failed to send message with error: ${err.getMessage}"
+          log.debug(msg)
+          Left(msg)
       }
+  }
+
+  def answerCallbackQuery(answer: AnswerCallbackQuery): Future[Either[String, Boolean]] = {
+    val methodName = "answerCallbackQuery"
+
+    log.debug(s"Trying to send answer: $answer")
+
+    val responseFuture = Marshal(answer).to[RequestEntity].flatMap { entity =>
+      log.debug(s"Sending entity: $entity")
+      val request = HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = entity
+      )
+
+      Http().singleRequest(request)
+    }
+
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Boolean]])
+      .map {
+        case TelegramAPIResult(_, Some(ok), _, _) =>
+          log.debug(s"Answer received: $ok")
+          Right(ok)
+
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
+      }
+      .recover {
+        case err =>
+          val msg = s"Failed to send answer with error: ${err.getMessage}"
+          log.debug(msg)
+          Left(msg)
+      }
+  }
+
+  def editMessageText(edit: EditMessageText): Future[Either[String, Message]] = {
+    val methodName = "editMessageText"
+
+    log.debug(s"Trying to edit message: $edit")
+
+    val responseFuture = Marshal(edit).to[RequestEntity].flatMap { entity =>
+      log.debug(s"Sending entity: $entity")
+      val request = HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = entity
+      )
+
+      Http().singleRequest(request)
+    }
+
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Message]])
+      .map {
+        case TelegramAPIResult(_, Some(message), _, _) =>
+          log.debug(s"Received message: $message")
+          Right(message)
+
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
+      }
+      .recover {
+        case err =>
+          val msg = s"Failed to edit message with error: ${err.getMessage}"
+          log.debug(msg)
+          Left(msg)
+      }
+  }
+
+  def editMessageReplyMarkup(edit: EditMessageReplyMarkup): Future[Either[String, Message]] = {
+    val methodName = "editMessageReplyMarkup"
+
+    log.debug(s"Trying to edit message markup: $edit")
+
+    val responseFuture = Marshal(edit).to[RequestEntity].flatMap { entity =>
+      log.debug(s"Sending entity: $entity")
+      val request = HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = entity
+      )
+
+      Http().singleRequest(request)
+    }
+
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Message]])
+      .map {
+        case TelegramAPIResult(_, Some(message), _, _) =>
+          log.debug(s"Received message: $message")
+          Right(message)
+
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
+      }
+      .recover {
+        case err =>
+          val msg = s"Failed to edit message with error: ${err.getMessage}"
+          log.debug(msg)
+          Left(msg)
+      }
+  }
+
+  def deleteMessage(chatId: Long, messageId: Long) = {
+    val methodName = "deleteMessage"
+
+    log.debug(s"Trying to delete message: $messageId in $chatId")
+
+    val params = DeleteMessage(chatId, messageId)
+
+    val responseFuture = Marshal(params).to[RequestEntity].flatMap { entity =>
+      log.debug(s"Sending entity: $entity")
+      val request = HttpRequest(
+        HttpMethods.POST,
+        baseUri + methodName,
+        entity = entity
+      )
+
+      Http().singleRequest(request)
+    }
+
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Boolean]])
+      .map {
+        case TelegramAPIResult(_, Some(ok), _, _) =>
+          log.debug(s"Message deleted: $ok")
+          Right(ok)
+
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
+      }
+      .recover {
+        case err =>
+          val msg = s"Failed to edit message with error: ${err.getMessage}"
+          log.debug(msg)
+          Left(msg)
+      }    
   }
 
   @tailrec
@@ -83,18 +228,21 @@ class TelegramConnector(botCredentials: String)
     val updatesResponse = responseFuture
       .flatMap(Unmarshal(_).to[TelegramAPIResult[List[TelegramUpdate]]])
       .map {
-        case TelegramAPIResult(_, Some(updates), _) =>
+        case TelegramAPIResult(_, Some(updates), _, _) =>
           val messages = updates.flatMap(_.message)
           if (messages.nonEmpty) log.info(s"Received messages: $messages")
           messages.foreach(messageHandler.handleMessage)
+
+          val callbackQueries = updates.flatMap(_.callbackQuery)
+          if (callbackQueries.nonEmpty) log.info(s"Received callback queries: $callbackQueries")
+          callbackQueries.foreach(messageHandler.handleCallbackQuery)
 
           Right(updates.map(_.updateId) match {
             case Nil  => 0
             case list => list.max(Ordering[Long])
           })
 
-        case TelegramAPIResult(_, None, code) =>
-          Left(s"Telegram api returned error code $code for method $methodName")
+        case TelegramAPIResult(_, None, code, description) => logError(methodName, code, description)
       }
       .recover {
         case err => Left(err.getMessage)
@@ -198,10 +346,10 @@ class TelegramConnector(botCredentials: String)
 }
 
 object TelegramConnector {
-  case class TelegramAPIResult[T](ok: Boolean, result: Option[T], error_code: Option[Int])
+  case class TelegramAPIResult[T](ok: Boolean, result: Option[T], error_code: Option[Int], description: Option[String])
 
   implicit def telegramAPIResultDecodeJson[T](implicit ev: DecodeJson[T]): DecodeJson[TelegramAPIResult[T]] =
-    jdecode3L(TelegramAPIResult.apply[T])("ok", "result", "error_code")
+    jdecode4L(TelegramAPIResult.apply[T])("ok", "result", "error_code", "description")
 
   implicit def getUpdatesEncodeJson: DecodeJson[TelegramAPIResult[List[TelegramUpdate]]] =
     telegramAPIResultDecodeJson[List[TelegramUpdate]]

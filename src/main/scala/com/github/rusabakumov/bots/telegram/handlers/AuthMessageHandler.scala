@@ -1,13 +1,13 @@
 package com.github.rusabakumov.bots.telegram.handlers
 
-import com.github.rusabakumov.bots.telegram.connector.TelegramMessageSender
+import com.github.rusabakumov.bots.telegram.BotContext
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
 import com.github.rusabakumov.util.Logging
 import scala.concurrent.{ExecutionContext, Future}
 
 class AuthMessageHandler(
   authorizedChats: List[Long],
-  val telegramMessageSender: TelegramMessageSender
+  val telegramBotContext: BotContext
 ) extends TelegramMessageHandler with Logging {
 
   def handleMessage(message: Message)(implicit ec: ExecutionContext): Future[Boolean] = {
@@ -17,7 +17,7 @@ class AuthMessageHandler(
         message.chat.id,
         "Sorry, but I can only talk in authorized chats. Ask my creator to give you access"
       )
-      telegramMessageSender.sendMessage(reply)
+      telegramBotContext.sendMessage(message.chat.id, reply)
       Future.successful(true)
     } else {
       Future.successful(false)

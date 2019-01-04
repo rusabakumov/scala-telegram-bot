@@ -1,24 +1,18 @@
 package com.github.rusabakumov.bots.telegram.handlers
 
-import com.github.rusabakumov.bots.telegram.commands._
-import com.github.rusabakumov.bots.telegram.connector.TelegramMessageSender
+import com.github.rusabakumov.bots.telegram.{BotCommand, BotContext}
 import com.github.rusabakumov.bots.telegram.model._
 import com.github.rusabakumov.util.Logging
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * Not thread safe!
-  */
 class CommandMessageHandler(
-  commands: List[TelegramBotCommand],
+  commands: List[BotCommand],
   botName: String,
-  val telegramMessageSender: TelegramMessageSender,
-  stateStorage: BotStateStorage
+  val telegramBotContext: BotContext
 ) extends TelegramMessageHandler
   with Logging {
 
-  private lazy val commandMap: Map[String, TelegramBotCommand] = commands.flatMap { command =>
+  private lazy val commandMap: Map[String, BotCommand] = commands.flatMap { command =>
     constructCommandStrings(command, botName).map { commandStr =>
       commandStr -> command
     }
@@ -30,18 +24,8 @@ class CommandMessageHandler(
     extractCommand(message) match {
       case Some(commandParams) =>
         commandMap.get(commandParams.nameString) match {
-          case Some(command: StatefulTelegramBotCommand) =>
-            command.execute(message, commandParams.params).flatMap {
-              case (messagesToSend, stateOption) =>
-                processSyncCommandResults(
-                  chatId,
-                  messagesToSend,
-                  stateOption
-                )
-            }
-
-          case Some(command: StatelessTelegramBotCommand) =>
-            command.execute(message, commandParams.params, telegramMessageSender).map(_ => true)
+          case Some(command) =>
+            command.execute(message, commandParams.params, telegramBotContext).map(_ => true)
 
           case _ =>
             Future.successful(false)
@@ -50,45 +34,6 @@ class CommandMessageHandler(
       case None =>
         //User haven't replied to previous state, so we wouldn't process message
         Future.successful(false)
-    }
-  }
-
-  private def processSyncCommandResults(
-    chatId: Long,
-    messagesToSend: List[MessageToSend],
-    stateOption: Option[BotState]
-  )(implicit ec: ExecutionContext): Future[Boolean] = {
-    val messageSendingResult: Future[Either[String, List[Message]]] = sendMessages(messagesToSend)
-
-    messageSendingResult.map {
-      case Right(_) =>
-        stateOption match {
-          case Some(updatedState) =>
-            stateStorage.setStateForChat(chatId, updatedState)
-
-          case None =>
-            stateStorage.clearStateForChat(chatId)
-        }
-        true
-
-      case _ =>
-        true
-    }
-  }
-
-  private def sendMessages(
-    messagesToSend: List[MessageToSend]
-  )(implicit ec: ExecutionContext): Future[Either[String, List[Message]]] = {
-    messagesToSend.foldLeft[Future[Either[String, List[Message]]]](Future.successful(Right(List.empty[Message]))) {
-      case (result, nextMessage) =>
-        result.flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(sentMessages) =>
-            telegramMessageSender.sendMessage(nextMessage).map {
-              case Left(err)          => Left(err)
-              case Right(sentMessage) => Right(sentMessages.+:(sentMessage))
-            }
-        }
     }
   }
 
@@ -108,7 +53,7 @@ class CommandMessageHandler(
     }
   }
 
-  private def constructCommandStrings(command: TelegramBotCommand, botName: String): List[String] = {
+  private def constructCommandStrings(command: BotCommand, botName: String): List[String] = {
     command.names.map("/" + _) ++ command.names.map("/" + _ + "@" + botName)
   }
 

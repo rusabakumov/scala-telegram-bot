@@ -1,6 +1,6 @@
 package com.github.rusabakumov.bots.telegram.handlers
 
-import com.github.rusabakumov.bots.telegram.connector.TelegramMessageSender
+import com.github.rusabakumov.bots.telegram.BotContext
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend}
 import com.github.rusabakumov.util.Logging
 import scala.concurrent.{ExecutionContext, Future}
@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class CombinedMessageHandler(
   handlers: List[TelegramMessageHandler],
-  val telegramMessageSender: TelegramMessageSender
+  val telegramBotContext: BotContext
 ) extends TelegramMessageHandler with Logging {
 
   def handleMessage(message: Message)(implicit ec: ExecutionContext): Future[Boolean] = {
@@ -29,7 +29,7 @@ class CombinedMessageHandler(
           s"Sorry, can't process this",
           None
         )
-        telegramMessageSender.sendMessage(fallbackMessage).map {
+        telegramBotContext.sendMessage(message.chat.id, fallbackMessage).map {
           case Right(_) =>
             true
 

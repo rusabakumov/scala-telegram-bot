@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait TelegramMessageHandler {
 
-  def telegramBotContext: BotContext
+  def botContext: BotContext
 
   /** Method that processes message and returns flag whether message was processed or not */
   def handleMessage(message: Message)(implicit ec: ExecutionContext): Future[Boolean]

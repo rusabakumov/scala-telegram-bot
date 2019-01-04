@@ -14,6 +14,6 @@ trait BotCommand extends BotReplyAction {
   override def execute(
     message: Message,
     commandParams: String,
-    telegramBotContext: BotContext
+    botContext: BotContext
   ): Future[Boolean]
 }

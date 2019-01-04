@@ -41,6 +41,10 @@ class BotContext(telegramConnector: TelegramConnector) {
     }
   }
 
+  def getReplyActionForChat(chatId: ChatId): Option[BotReplyAction] = {
+    botActionsStorage.getStateForChat(chatId)
+  }
+
   def setChatBotReplyAction(chatId: ChatId, replyAction: BotReplyAction): Unit = {
     botActionsStorage.setStateForChat(chatId, replyAction)
   }

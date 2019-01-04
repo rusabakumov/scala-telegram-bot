@@ -5,10 +5,11 @@ import com.github.rusabakumov.bots.telegram.model._
 import com.github.rusabakumov.util.Logging
 import scala.concurrent.{ExecutionContext, Future}
 
+/** This handler should be used only once in each bot */
 class CommandMessageHandler(
   commands: List[BotCommand],
   botName: String,
-  val telegramBotContext: BotContext
+  val botContext: BotContext
 ) extends TelegramMessageHandler
   with Logging {
 
@@ -25,10 +26,15 @@ class CommandMessageHandler(
       case Some(commandParams) =>
         commandMap.get(commandParams.nameString) match {
           case Some(command) =>
-            command.execute(message, commandParams.params, telegramBotContext).map(_ => true)
+            command.execute(message, commandParams.params, botContext).map(_ => true)
 
           case _ =>
-            Future.successful(false)
+            //Replying now. Otherwise, this command will be interpreted as a plain message later
+            botContext.sendMessage(
+              message.chat.id,
+              MessageToSend(message.chat.id, s"Don't know command ${commandParams.nameString}")
+            )
+            Future.successful(true)
         }
 
       case None =>

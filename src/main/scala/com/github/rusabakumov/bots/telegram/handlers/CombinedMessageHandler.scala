@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class CombinedMessageHandler(
   handlers: List[TelegramMessageHandler],
-  val telegramBotContext: BotContext
+  val botContext: BotContext
 ) extends TelegramMessageHandler with Logging {
 
   def handleMessage(message: Message)(implicit ec: ExecutionContext): Future[Boolean] = {
@@ -29,7 +29,7 @@ class CombinedMessageHandler(
           s"Sorry, can't process this",
           None
         )
-        telegramBotContext.sendMessage(message.chat.id, fallbackMessage).map {
+        botContext.sendMessage(message.chat.id, fallbackMessage).map {
           case Right(_) =>
             true
 

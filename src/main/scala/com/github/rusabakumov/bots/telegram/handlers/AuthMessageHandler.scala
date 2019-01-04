@@ -7,7 +7,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class AuthMessageHandler(
   authorizedChats: List[Long],
-  val telegramBotContext: BotContext
+  val botContext: BotContext
 ) extends TelegramMessageHandler with Logging {
 
   def handleMessage(message: Message)(implicit ec: ExecutionContext): Future[Boolean] = {
@@ -17,7 +17,7 @@ class AuthMessageHandler(
         message.chat.id,
         "Sorry, but I can only talk in authorized chats. Ask my creator to give you access"
       )
-      telegramBotContext.sendMessage(message.chat.id, reply)
+      botContext.sendMessage(message.chat.id, reply)
       Future.successful(true)
     } else {
       Future.successful(false)

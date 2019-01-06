@@ -29,7 +29,7 @@ class CombinedMessageHandler(
           s"Sorry, can't process this",
           None
         )
-        botContext.sendMessage(message.chat.id, fallbackMessage).map {
+        botContext.sendMessage(fallbackMessage).map {
           case Right(_) =>
             true
 

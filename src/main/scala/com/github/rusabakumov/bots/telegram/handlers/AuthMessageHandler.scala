@@ -17,7 +17,7 @@ class AuthMessageHandler(
         message.chat.id,
         "Sorry, but I can only talk in authorized chats. Ask my creator to give you access"
       )
-      botContext.sendMessage(message.chat.id, reply)
+      botContext.sendMessage(reply)
       Future.successful(true)
     } else {
       Future.successful(false)

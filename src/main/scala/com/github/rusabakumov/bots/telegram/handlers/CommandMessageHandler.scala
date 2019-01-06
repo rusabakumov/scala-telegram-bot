@@ -31,7 +31,6 @@ class CommandMessageHandler(
           case _ =>
             //Replying now. Otherwise, this command will be interpreted as a plain message later
             botContext.sendMessage(
-              message.chat.id,
               MessageToSend(message.chat.id, s"Don't know command ${commandParams.nameString}")
             )
             Future.successful(true)

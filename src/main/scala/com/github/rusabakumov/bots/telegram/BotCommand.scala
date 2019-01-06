@@ -11,9 +11,14 @@ trait BotCommand extends BotReplyAction {
   * @param message with command
   * @param commandParams text of the message with trimmed command text
   */
-  override def execute(
+  def execute(
     message: Message,
     commandParams: String,
     botContext: BotContext
   ): Future[Boolean]
+
+  final def execute(
+    message: Message,
+    botContext: BotContext
+  ): Future[Boolean] = execute(message, message.text, botContext)
 }

@@ -3,6 +3,10 @@ package com.github.rusabakumov.bots.telegram
 import scala.collection.parallel.mutable
 import BotStateTypes._
 
+/**
+  * Bot can store some state after sent message and logic how to process new reply from user. Here is the class
+  * for storage of such actions
+  */
 class BotActionsStorage() {
   private val chatStateMap = new mutable.ParHashMap[ChatId, BotReplyAction]
 

@@ -56,7 +56,7 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
   def sendMessages(
     messagesToSend: List[MessageToSend],
     replyActionOption: Option[BotReplyAction] = None
-  ): Future[Either[String, List[Message]]] = {
+  ): Future[Either[String, Unit]] = {
     val chatIds = messagesToSend.map(_.chatId).distinct
     if (chatIds.size > 1) {
       log.error(s"Received attempt to send batch of messages with different chat ids! Looks like an error in handlers!")
@@ -67,7 +67,7 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
       val chatId = chatIds.head
       val messageSendingResult: Future[Either[String, List[Message]]] = sendMessagesInternal(messagesToSend)
       messageSendingResult.map {
-        case Right(msgs) =>
+        case Right(_) =>
           replyActionOption match {
             case Some(replyAction) =>
               botActionsStorage.setStateForChat(chatId, replyAction)
@@ -75,10 +75,10 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
             case None =>
               botActionsStorage.clearStateForChat(chatId)
           }
-          Right(msgs)
+          Right(())
 
-        case any =>
-          any
+        case Left(err) =>
+          Left(err)
       }
     }
   }
@@ -87,12 +87,8 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
   def sendMessage(
     messageToSend: MessageToSend,
     replyActionOption: Option[BotReplyAction] = None
-  ): Future[Either[String, Message]] = {
-    sendMessages(List(messageToSend), replyActionOption).map {
-      case Right(message :: _) => Right(message)
-      case Right(_) => Left("Error decoding sending result")
-      case Left(err) => Left(err)
-    }
+  ): Future[Either[String, Unit]] = {
+    sendMessages(List(messageToSend), replyActionOption)
   }
 
   private def ensureCorrectReplyMarkup(messagesToSend: List[MessageToSend]): List[MessageToSend] = messagesToSend match {

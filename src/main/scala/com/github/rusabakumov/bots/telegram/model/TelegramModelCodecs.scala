@@ -14,9 +14,19 @@ object TelegramModelCodecs {
     MessageEntity.apply, MessageEntity.unapply
   )("type", "offset", "length")
 
-  implicit def messageCodecJson: CodecJson[Message] = casecodec5(
-    Message.apply, Message.unapply
-  )("message_id", "text", "chat", "entities", "forward_date")
+//  implicit def messageCodecJson: CodecJson[Message] = casecodec6(
+//    Message.apply, Message.unapply
+//  )("message_id", "text", "chat", "entities", "reply_to_message", "forward_date")
+
+  implicit def messageDecodeJson: DecodeJson[Message] =
+    DecodeJson(msg => for {
+      messageId <- (msg --\ "message_id").as[Long]
+      rawText <- (msg --\ "text").as[Option[String]]
+      chat <- (msg --\ "chat").as[Chat]
+      entities <- (msg --\ "entities").as[Option[List[MessageEntity]]]
+      replyToMessage <- (msg --\ "reply_to_message").as[Option[Message]]
+      forwardDate <- (msg --\ "forward_date").as[Option[Int]]
+    } yield Message(messageId, rawText, chat, entities, replyToMessage, forwardDate))
 
   implicit def messageToSendCodecJson: EncodeJson[MessageToSend] = EncodeJson { (m: MessageToSend) =>
     ("chat_id" := m.chatId) ->:
@@ -63,9 +73,12 @@ object TelegramModelCodecs {
       jEmptyObject
   }
 
-  implicit def telegramUpdateCodecJson: CodecJson[TelegramUpdate] = casecodec3(
-    TelegramUpdate.apply, TelegramUpdate.unapply
-  )("update_id", "message", "inline_query")
+  implicit def telegramUpdateCodecJson: DecodeJson[TelegramUpdate] =
+    DecodeJson(msg => for {
+      updateId <- (msg --\ "update_id").as[Long]
+      message <- (msg --\ "message").as[Option[Message]]
+      inlineQuery <- (msg --\ "inline_query").as[Option[InlineQuery]]
+    } yield TelegramUpdate(updateId, message, inlineQuery))
 
   implicit def inlineQueryCodecJson: CodecJson[InlineQuery] = casecodec4(
     InlineQuery.apply, InlineQuery.unapply

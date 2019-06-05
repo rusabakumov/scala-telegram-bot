@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{ExceptionHandler, RejectionHandler, Route}
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
-import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
+import com.github.rusabakumov.bots.telegram.handlers.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.TelegramUpdate
 import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import de.heikoseeberger.akkahttpargonaut.ArgonautSupport
@@ -19,7 +19,7 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 
-class WebhookReceiverService(
+class TelegramMessageReceiverService(
     token: String,
     keystorePath: String,
     password: String,

@@ -8,7 +8,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import argonaut.Argonaut._
 import argonaut.DecodeJson
-import com.github.rusabakumov.bots.telegram.TelegramMessageHandler
+import com.github.rusabakumov.bots.telegram.handlers.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.TelegramModelCodecs._
 import com.github.rusabakumov.bots.telegram.model.{Message, MessageToSend, TelegramUpdate}
 import com.github.rusabakumov.util.Logging
@@ -137,7 +137,7 @@ class TelegramConnector(botCredentials: String)
     clearWebhook()
     setWebhook(hookUrl, certificate)
 
-    new WebhookReceiverService(
+    new TelegramMessageReceiverService(
       token,
       keystorePath,
       password,

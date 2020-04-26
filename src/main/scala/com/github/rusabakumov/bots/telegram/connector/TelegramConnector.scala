@@ -30,10 +30,8 @@ class TelegramConnector(botCredentials: String)
 
   private val baseUri: Uri = "https://api.telegram.org/" + botCredentials + "/"
 
-  def sendMessage(messageToSend: MessageToSend): Future[Either[String, Message]] = {
+  def sendMessage(messageToSend: MessageToSend): Future[Either[TelegramAPIError, Message]] = {
     val methodName = "sendMessage"
-
-    log.debug(s"Trying to send message: $messageToSend")
 
     val responseFuture = Marshal(messageToSend).to[RequestEntity].flatMap { entity =>
       val request = HttpRequest(
@@ -48,15 +46,15 @@ class TelegramConnector(botCredentials: String)
     responseFuture
       .flatMap(Unmarshal(_).to[TelegramAPIResult[Message]])
       .map {
-        case TelegramAPIResult(_, Some(message), _) =>
+        case TelegramAPIResult(_, _, Some(message), _) =>
           Right(message)
 
-        case TelegramAPIResult(_, None, code) =>
-          Left(s"Telegram api returned error code $code for method $methodName")
+        case TelegramAPIResult(_, errOption, None, code) =>
+          Left(TelegramAPIError(code.getOrElse(0), errOption.getOrElse("Telegram hasn't returned description")))
       }
       .recover {
         case err =>
-          Left(s"Failed to send message with error: ${err.getMessage}")
+          Left(TelegramAPIError(0, err.toString))
       }
   }
 
@@ -83,7 +81,7 @@ class TelegramConnector(botCredentials: String)
     val updatesResponse = responseFuture
       .flatMap(Unmarshal(_).to[TelegramAPIResult[List[TelegramUpdate]]])
       .map {
-        case TelegramAPIResult(_, Some(updates), _) =>
+        case TelegramAPIResult(_, _, Some(updates), _) =>
           val messages = updates.flatMap(_.message)
           if (messages.nonEmpty) log.info(s"Received messages: $messages")
           messages.foreach(messageHandler.handleMessage)
@@ -93,7 +91,7 @@ class TelegramConnector(botCredentials: String)
             case list => list.max(Ordering[Long])
           })
 
-        case TelegramAPIResult(_, None, code) =>
+        case TelegramAPIResult(_, _, None, code) =>
           Left(s"Telegram api returned error code $code for method $methodName")
       }
       .recover {
@@ -198,10 +196,10 @@ class TelegramConnector(botCredentials: String)
 }
 
 object TelegramConnector {
-  case class TelegramAPIResult[T](ok: Boolean, result: Option[T], error_code: Option[Int])
+  case class TelegramAPIResult[T](ok: Boolean, description: Option[String], result: Option[T], error_code: Option[Int])
 
   implicit def telegramAPIResultDecodeJson[T](implicit ev: DecodeJson[T]): DecodeJson[TelegramAPIResult[T]] =
-    jdecode3L(TelegramAPIResult.apply[T])("ok", "result", "error_code")
+    jdecode4L(TelegramAPIResult.apply[T])("ok", "description", "result", "error_code")
 
   implicit def getUpdatesEncodeJson: DecodeJson[TelegramAPIResult[List[TelegramUpdate]]] =
     telegramAPIResultDecodeJson[List[TelegramUpdate]]

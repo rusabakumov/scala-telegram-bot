@@ -1,7 +1,7 @@
 package com.github.rusabakumov.bots.telegram
 
 import com.github.rusabakumov.bots.telegram.BotStateTypes.ChatId
-import com.github.rusabakumov.bots.telegram.connector.TelegramConnector
+import com.github.rusabakumov.bots.telegram.connector.{TelegramAPIError, TelegramConnector}
 import com.github.rusabakumov.bots.telegram.model._
 import com.github.rusabakumov.util.Logging
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,15 +18,15 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
   private def sendMessageInternal(
     messageToSend: MessageToSend,
     setDefaultKeyboard: Boolean = false
-  ): Future[Either[String, Message]] = {
+  ): Future[Either[TelegramAPIError, Message]] = {
     telegramConnector.sendMessage(messageToSend)
   }
 
   private def sendMessagesInternal(
     messagesToSend: List[MessageToSend],
-  ): Future[Either[String, List[Message]]] = {
+  ): Future[Either[TelegramAPIError, List[Message]]] = {
     val messagesWithCheckedMarkup = ensureCorrectReplyMarkup(messagesToSend)
-    messagesWithCheckedMarkup.foldLeft[Future[Either[String, List[Message]]]](Future.successful(Right(List.empty[Message]))) {
+    messagesWithCheckedMarkup.foldLeft[Future[Either[TelegramAPIError, List[Message]]]](Future.successful(Right(List.empty[Message]))) {
       case (result, nextMessage) =>
         result.flatMap {
           case Left(err) =>
@@ -56,16 +56,16 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
   def sendMessages(
     messagesToSend: List[MessageToSend],
     replyActionOption: Option[BotReplyAction] = None
-  ): Future[Either[String, Unit]] = {
+  ): Future[Either[TelegramAPIError, Unit]] = {
     val chatIds = messagesToSend.map(_.chatId).distinct
     if (chatIds.size > 1) {
       log.error(s"Received attempt to send batch of messages with different chat ids! Looks like an error in handlers!")
-      Future.successful(Left(s"Messages in batch have different chat ids!"))
+      Future.successful(Left(TelegramAPIError(0, s"Messages in batch have different chat ids!")))
     } else if (chatIds.isEmpty) {
       Future.successful(Right(List.empty))
     } else {
       val chatId = chatIds.head
-      val messageSendingResult: Future[Either[String, List[Message]]] = sendMessagesInternal(messagesToSend)
+      val messageSendingResult: Future[Either[TelegramAPIError, List[Message]]] = sendMessagesInternal(messagesToSend)
       messageSendingResult.map {
         case Right(_) =>
           replyActionOption match {
@@ -87,7 +87,7 @@ class BotContext(telegramConnector: TelegramConnector) extends Logging {
   def sendMessage(
     messageToSend: MessageToSend,
     replyActionOption: Option[BotReplyAction] = None
-  ): Future[Either[String, Unit]] = {
+  ): Future[Either[TelegramAPIError, Unit]] = {
     sendMessages(List(messageToSend), replyActionOption)
   }
 

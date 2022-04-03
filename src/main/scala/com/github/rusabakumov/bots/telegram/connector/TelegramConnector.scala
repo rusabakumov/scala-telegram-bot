@@ -5,7 +5,6 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
 import argonaut.Argonaut._
 import argonaut.DecodeJson
 import com.github.rusabakumov.bots.telegram.handlers.TelegramMessageHandler
@@ -25,7 +24,6 @@ class TelegramConnector(botCredentials: String)
   import TelegramConnector._
 
   implicit val system = ActorSystem("telegram-connector")
-  implicit val materializer = ActorMaterializer()
   implicit val executionContext: ExecutionContext = system.dispatcher
 
   private val baseUri: Uri = "https://api.telegram.org/" + botCredentials + "/"
@@ -36,7 +34,7 @@ class TelegramConnector(botCredentials: String)
     val responseFuture = Marshal(messageToSend).to[RequestEntity].flatMap { entity =>
       val request = HttpRequest(
         HttpMethods.POST,
-        baseUri + methodName,
+        baseUri.toString() + methodName,
         entity = entity
       )
 
@@ -70,7 +68,7 @@ class TelegramConnector(botCredentials: String)
     val responseFuture = Http().singleRequest(
       HttpRequest(
         HttpMethods.POST,
-        baseUri + methodName,
+        baseUri.toString() + methodName,
         entity = FormData(
           "offset" -> offset.toString,
           "timeout" -> requestTimeout.toString
@@ -150,20 +148,22 @@ class TelegramConnector(botCredentials: String)
 
     val urlPart = Multipart.FormData.BodyPart.Strict("url", hookUrl)
     val maxConnectionsPart =
-      Multipart.FormData.BodyPart.Strict("max_connections", "1")
+      Multipart.FormData.BodyPart.Strict("max_connections", "5")
+    val dropPendingUpdates =
+      Multipart.FormData.BodyPart.Strict("drop_pending_updates", "True")
     val bodyPartOption = Multipart.FormData.BodyPart.fromFile(
       "certificate",
       ContentTypes.`application/octet-stream`,
       certificate)
 
     val multipartData =
-      Multipart.FormData(List(urlPart, maxConnectionsPart, bodyPartOption): _*)
+      Multipart.FormData(List(urlPart, maxConnectionsPart, bodyPartOption, dropPendingUpdates): _*)
 
     val responseFuture = Marshal(multipartData).to[RequestEntity].flatMap {
       entity =>
         val request = HttpRequest(
           HttpMethods.POST,
-          baseUri + methodName,
+          baseUri.toString() + methodName,
           entity = entity
         )
 
@@ -185,13 +185,17 @@ class TelegramConnector(botCredentials: String)
     val responseFuture = Http().singleRequest(
       HttpRequest(
         HttpMethods.GET,
-        baseUri + methodName
+        baseUri.toString() + methodName
       )
     )
 
-    responseFuture.recover {
-      case err => Left(s"Failed to send message with error: ${err.getMessage}")
-    }
+    responseFuture
+      .flatMap(Unmarshal(_).to[TelegramAPIResult[Unit]])
+      .map(Right(_))
+      .recover {
+        case err =>
+          Left(s"Failed to delete webhook: ${err.getMessage}")
+      }
   }
 }
 

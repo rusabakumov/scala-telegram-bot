@@ -7,7 +7,6 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{ExceptionHandler, RejectionHandler, Route}
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
-import akka.stream.ActorMaterializer
 import com.github.rusabakumov.bots.telegram.handlers.TelegramMessageHandler
 import com.github.rusabakumov.bots.telegram.model.TelegramUpdate
 import com.typesafe.scalalogging.{Logger => ScalaLogger}
@@ -36,7 +35,6 @@ class TelegramMessageReceiverService(
   private var server: Option[Future[ServerBinding]] = None
 
   implicit val system: ActorSystem = ActorSystem("telegram-bot-webhook-system")
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val executionContext: ExecutionContext = system.dispatcher
 
   private def rejectionHandler = RejectionHandler
@@ -80,12 +78,10 @@ class TelegramMessageReceiverService(
   def runService(): Unit = {
     if (server.isEmpty) {
       server = Some(
-        Http().bindAndHandle(
-          route,
-          host,
-          port,
-          connectionContext = initSSLContext(keystorePath, password)
-        )
+        Http()
+          .newServerAt(host, port)
+          .enableHttps(initSSLContext(keystorePath, password))
+          .bind(route)
       )
       log.info(s"Webhook service started")
     }
@@ -113,6 +109,6 @@ class TelegramMessageReceiverService(
     sslContext.init(keyManagerFactory.getKeyManagers,
                     tmf.getTrustManagers,
                     new SecureRandom)
-    ConnectionContext.https(sslContext)
+    ConnectionContext.httpsServer(sslContext)
   }
 }

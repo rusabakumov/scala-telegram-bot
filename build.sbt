@@ -1,7 +1,7 @@
 organization := "com.github.rusabakumov"
 name := "scala-telegram-bot"
-version := "3.1.0-rc3"
-scalaVersion := "2.12.6"
+version := "3.2.0-rc1"
+scalaVersion := "2.13.8"
 
 bintrayRepository := "rusabakumov-bintray"
 bintrayOmitLicense := true
@@ -15,20 +15,15 @@ scalacOptions ++= Seq(
   "-language:implicitConversions",
   "-language:postfixOps",
   "-Ywarn-dead-code",
-  "-Ywarn-infer-any",
-  "-Ywarn-unused-import",
   "-Xfatal-warnings",
   "-Xlint"
 )
 
-// Only necessary for SNAPSHOT releases
-resolvers += Resolver.sonatypeRepo("snapshots")
-resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-http" % "10.1.11",
-  "com.typesafe.akka" %% "akka-stream" % "2.5.26",
-  "de.heikoseeberger" %% "akka-http-argonaut" % "1.21.0",
-  "ch.qos.logback" %  "logback-classic" % "1.1.7",
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
+  "com.typesafe.akka" %% "akka-http" % "10.2.7",
+  "com.typesafe.akka" %% "akka-stream" % "2.6.19",
+  "de.heikoseeberger" %% "akka-http-argonaut" % "1.39.2",
+  "ch.qos.logback" %  "logback-classic" % "1.2.11",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 )

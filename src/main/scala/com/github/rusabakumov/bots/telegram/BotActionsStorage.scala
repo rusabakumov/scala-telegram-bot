@@ -1,6 +1,6 @@
 package com.github.rusabakumov.bots.telegram
 
-import scala.collection.parallel.mutable
+import scala.collection.concurrent.TrieMap
 import BotStateTypes._
 
 /**
@@ -8,7 +8,7 @@ import BotStateTypes._
   * for storage of such actions
   */
 class BotActionsStorage() {
-  private val chatStateMap = new mutable.ParHashMap[ChatId, BotReplyAction]
+  private val chatStateMap = new TrieMap[ChatId, BotReplyAction]
 
   def getStateForChat(chatId: ChatId): Option[BotReplyAction] = {
     chatStateMap.get(chatId)
